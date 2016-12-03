@@ -1,23 +1,46 @@
 module Main where
 
+import           Data.List
 import           Data.List.Split
 import qualified Data.Set as Set
 import           Data.Set (Set)
 
-data Pos = Pos !Integer !Integer
+-- | Positions on the grid
+data Pos = Pos !Int !Int
   deriving (Eq, Ord, Show, Read)
 
-parseInput :: String -> [(Char,Integer)]
-parseInput xs = [ (x, read xs) | x:xs <- splitOn ", " xs ]
+-- | Vectors used for incremental steps
+data Vec = Vec !Int !Int
+  deriving (Eq, Ord, Show, Read)
+
+data Command = Command !Char !Int
+
+parseInput :: String -> [Command]
+parseInput xs = [ Command x (read xs) | x:xs <- splitOn ", " xs ]
 
 main :: IO ()
 main =
-  do xs <- parseInput <$> readFile "input1.txt"
-     let locs = walk (Pos 0 0) (Pos 0 1) xs
-     print (distance (last locs))
-     print (distance <$> duplicate locs)
+  do cmds <- parseInput <$> readFile "input1.txt"
+     let path = computePath cmds
+     print (part1 path)
+     print (part2 path)
 
-duplicate :: [Pos] -> Maybe Pos
+-- | Given a list of steps determine the ultimate Manhattan-distance from
+-- the starting position.
+part1 :: [Pos] -> Int
+part1 = distance . last
+
+part2 :: [Pos] -> Maybe Int
+part2 = fmap distance . duplicate
+
+computePath :: [Command] -> [Pos]
+computePath = toPositions origin . toSteps north
+  where
+    origin = Pos 0 0
+    north  = Vec 0 1
+
+-- | Find the first duplicate element in a list
+duplicate :: Ord a => [a] -> Maybe a
 duplicate = aux Set.empty
   where
     aux seen [] = Nothing
@@ -25,24 +48,29 @@ duplicate = aux Set.empty
       | Set.member x seen = Just x
       | otherwise         = aux (Set.insert x seen) xs
 
-distance :: Pos -> Integer
+distance :: Pos -> Int
 distance (Pos x y) = abs x + abs y
 
-walk :: Pos -> Pos -> [(Char,Integer)] -> [Pos]
-walk loc dir [] = [loc]
-walk loc dir ((a,b):steps) = wander loc dir' b steps
+toSteps ::
+  Vec       {- ^ initial direction  -} ->
+  [Command] {- ^ commands           -} ->
+  [Vec]     {- ^ list of directions -}
+toSteps dir0 cmds = concat (snd (mapAccumL aux dir0 cmds))
   where
-    dir' = turn a dir
+    aux dir (Command lr steps) =
+      let dir' = turn lr dir
+      in (dir', replicate steps dir')
 
-wander :: Pos -> Pos -> Integer -> [(Char,Integer)] -> [Pos]
-wander loc dir 0 steps = walk loc dir steps
-wander loc dir n steps = loc : wander loc' dir (n-1) steps
-  where
-    loc' = step dir loc
+toPositions ::
+  Pos   {- ^ origin -} ->
+  [Vec] {- ^ steps  -} ->
+  [Pos] {- ^ path   -}
+toPositions = scanl step
 
-turn :: Char -> Pos -> Pos
-turn 'L' (Pos dx dy) = Pos (-dy) dx
-turn 'R' (Pos dx dy) = Pos dy (-dx)
+turn :: Char -> Vec -> Vec
+turn 'L' (Vec dx dy) = Vec (-dy) dx
+turn 'R' (Vec dx dy) = Vec dy (-dx)
+turn c   _           = error ("Bad instruction: " ++ [c])
 
-step :: Pos -> Pos -> Pos
-step (Pos dx dy) (Pos x y) = Pos (x + dx) (y + dy)
+step :: Pos -> Vec -> Pos
+step (Pos x y) (Vec dx dy) = Pos (x + dx) (y + dy)
