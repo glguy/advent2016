@@ -43,7 +43,7 @@ computePath = toPositions origin . toSteps north
 duplicate :: Ord a => [a] -> Maybe a
 duplicate = aux Set.empty
   where
-    aux seen [] = Nothing
+    aux _    [] = Nothing
     aux seen (x:xs)
       | Set.member x seen = Just x
       | otherwise         = aux (Set.insert x seen) xs

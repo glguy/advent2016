@@ -13,7 +13,7 @@ count :: (a -> Bool) -> [a] -> Int
 count p xs = length (filter p xs)
 
 parseInput :: String -> [[Int]]
-parseInput = map (map read . words) . lines
+parseInput = chunksOf 3 . map read . words
 
 rearrange :: [[a]] -> [[a]]
 rearrange = chunksOf 3 . concat . transpose
