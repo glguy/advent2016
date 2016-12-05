@@ -5,7 +5,7 @@ import Data.Array
 
 main :: IO ()
 main =
-  do cmds <- lines <$> readFile "input2.txt"
+  do cmds <- lines <$> readFile "inputs/input2.txt"
      putStrLn (computeCode keys1 cmds)
      putStrLn (computeCode keys2 cmds)
 

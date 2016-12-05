@@ -20,7 +20,7 @@ parseInput xs = [ Command x (read xs) | x:xs <- splitOn ", " xs ]
 
 main :: IO ()
 main =
-  do cmds <- parseInput <$> readFile "input1.txt"
+  do cmds <- parseInput <$> readFile "inputs/input1.txt"
      let path = computePath cmds
      print (part1 path)
      print (part2 path)

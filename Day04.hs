@@ -16,7 +16,7 @@ hashLength :: Int
 hashLength = 5
 
 main =
-  do input <- parseInput <$> readFile "input4.txt"
+  do input <- parseInput <$> readFile "inputs/input4.txt"
      let valid = filter isGoodEntry input
      print (sum (map sectorId valid))
      for_ valid $ \e ->

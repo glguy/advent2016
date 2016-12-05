@@ -9,27 +9,27 @@ build-type:          Simple
 extra-source-files:  ChangeLog.md
 cabal-version:       >=1.10
 
-executable Day1
-  main-is:             Day1.hs
+executable Day01
+  main-is:             Day01.hs
   build-depends:       base >=4.9 && <4.10, split >=0.2 && <0.3, containers >=0.5 && <0.6
   default-language:    Haskell2010
 
-executable Day2
-  main-is:             Day2.hs
+executable Day02
+  main-is:             Day02.hs
   build-depends:       base >=4.9 && <4.10, array >=0.5 && <0.6
   default-language:    Haskell2010
 
-executable Day3
-  main-is:             Day3.hs
+executable Day03
+  main-is:             Day03.hs
   build-depends:       base >=4.9 && <4.10, split >=0.2 && <0.3
   default-language:    Haskell2010
 
-executable Day4
-  main-is:             Day4.hs
+executable Day04
+  main-is:             Day04.hs
   build-depends:       base >=4.9 && <4.10, containers >= 0.5 && <0.6, megaparsec >= 5.1 && < 5.2
   default-language:    Haskell2010
 
-executable Day5
-  main-is:             Day5.hs
+executable Day05
+  main-is:             Day05.hs
   build-depends:       base >=4.9 && <4.10, containers >= 0.5 && <0.6, cryptonite >=0.20 && <0.21, bytestring >=0.10 && <0.11
   default-language:    Haskell2010
