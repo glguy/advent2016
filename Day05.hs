@@ -1,7 +1,8 @@
 module Main where
 
 import           Crypto.Hash
-import qualified Data.Map as Map
+import qualified Data.IntMap as IntMap
+import           Data.IntMap (IntMap)
 import qualified Data.ByteString.Char8 as B
 import           Data.Monoid
 import           System.IO
@@ -15,20 +16,40 @@ main =
 input :: B.ByteString
 input = B.pack "ffykfhsq"
 
+passwordLen :: Int
+passwordLen = 8
+
 password1 :: String
-password1 = take 8 (map fst digitStream)
+password1 = fst <$> take passwordLen digitStream
 
 password2 :: String
-password2 = go Map.empty digitStream
+password2 = replicate passwordLen '_'
+         ++ go 0 IntMap.empty digitStream'
   where
-    go seen _ | Map.size seen == 8 = ""
-    go _ [] = error "digitStream ran out!"
-    go seen ((pos,c) : rest)
-      | '0' <= pos, pos < '8', Map.notMember pos seen = rendered ++ go seen' rest
-      | otherwise           =  go seen rest
+    digitStream' =
+        [ (key, val) | (pos,val) <- digitStream
+        , let key = fromEnum pos - fromEnum '0'
+        , 0 <= key, key < passwordLen
+        ]
+
+    go _ seen _ | length seen == passwordLen = ""
+    go _ _ [] = error "password generation underflow!"
+    go n seen ((key,val) : rest)
+      | IntMap.member key seen = render n seen ++ go (n+1) seen rest
+      | otherwise              = render n seen' ++ go (n+1) seen' rest
       where
-        seen' = Map.insert pos c seen
-        rendered = "\r" ++ [ Map.findWithDefault '_' i seen' | i <- ['0'..'7'] ]
+        seen' = IntMap.insert key val seen
+
+spinner :: String
+spinner    = "◐◓◑◒"
+
+spinnerLen :: Int
+spinnerLen = length spinner
+
+render :: Int -> IntMap Char -> String
+render n seen =
+  '\r' : (spinner !! (n`rem`spinnerLen)) : ' ' :
+  [ IntMap.findWithDefault '_' key seen | key <- [0 .. passwordLen - 1 ] ]
 
 digitStream :: [(Char,Char)]
 digitStream = go (0 :: Int)
