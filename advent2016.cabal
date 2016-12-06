@@ -33,3 +33,8 @@ executable Day05
   main-is:             Day05.hs
   build-depends:       base >=4.9 && <4.10, containers >= 0.5 && <0.6, cryptonite >=0.20 && <0.21, bytestring >=0.10 && <0.11
   default-language:    Haskell2010
+
+executable Day06
+  main-is:             Day06.hs
+  build-depends:       base >=4.9 && <4.10, containers >= 0.5 && <0.6
+  default-language:    Haskell2010
