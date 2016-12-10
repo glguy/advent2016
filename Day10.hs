@@ -10,8 +10,7 @@ main :: IO ()
 main =
   do solution <- followInstructions . parseLines parseInstr <$> readInputFile 10
 
-     print [ who | (who,what) <- Map.toList solution
-                 , what == Two 17 61 ]
+     print [ who | (who,Two 17 61) <- Map.toList solution]
 
      print $ product [ v | i <- [0..2]
                          , let One v = solution Map.! Output i ]
@@ -25,7 +24,7 @@ data Target = Bot !Int | Output !Int
   deriving (Eq, Ord, Show)
 
 data Holding = One !Int | Two !Int !Int
-  deriving Eq
+  deriving Show
 
 -- Parsing -------------------------------------------------------------
 
