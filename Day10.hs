@@ -9,8 +9,7 @@ main :: IO ()
 main =
   do txt <- readInputFile 10
 
-     let solution = toSolution
-                  $ toRoutes
+     let solution = followInstructions
                   $ map parseInstr
                   $ lines txt
 
@@ -18,21 +17,14 @@ main =
                  , sort what  == [ 17, 61 ]
                  ]
 
-     print $ do [a] <- Map.lookup (ToOutput 0) solution
-                [b] <- Map.lookup (ToOutput 1) solution
-                [c] <- Map.lookup (ToOutput 2) solution
-                return (a * b * c)
+     print $ product $ do i <- [0..2]
+                          solution Map.! Output i
 
-data Instr
-  = Value Int Target
-  | Gives Int Target Target
+data Instr = Value Int Target | Gives Int Target Target
   deriving Show
 
-data Target = ToBot Int | ToOutput Int
+data Target = Bot Int | Output Int
   deriving (Eq, Ord, Show)
-
-data Source = FromBotHi Int | FromBotLo Int | Constant Int
-
 
 parseInstr :: String -> Instr
 parseInstr str =
@@ -46,22 +38,16 @@ parseInstr str =
 
     _ -> error ("Bad instruction: " ++ str)
   where
-    parseTarget "bot"    n = ToBot    (read n)
-    parseTarget "output" n = ToOutput (read n)
+    parseTarget "bot"    n = Bot    (read n)
+    parseTarget "output" n = Output (read n)
     parseTarget other    _ = error ("Bad target: " ++ other)
 
 
-toRoutes :: [Instr] -> Map Target [Source]
-toRoutes xs = Map.fromListWith (++) (concatMap aux xs)
+followInstructions :: [Instr] -> Map Target [Int]
+followInstructions xs = result
   where
-    aux (Value val tgt)   = [ (tgt, [Constant  val]) ]
-    aux (Gives src lo hi) = [ (lo , [FromBotLo src])
-                            , (hi , [FromBotHi src]) ]
+    result = Map.fromListWith (++) (concatMap aux xs)
 
-toSolution :: Map Target [Source] -> Map Target [Int]
-toSolution routes = result
-  where
-    result = fmap (map fromSource) routes
-    fromSource (FromBotLo n) = minimum (result Map.! ToBot n)
-    fromSource (FromBotHi n) = maximum (result Map.! ToBot n)
-    fromSource (Constant  n) = n
+    aux (Value val tgt)   = [ (tgt, [val]) ]
+    aux (Gives src lo hi) = [ (lo , [minimum (result Map.! Bot src)])
+                            , (hi , [maximum (result Map.! Bot src)]) ]
