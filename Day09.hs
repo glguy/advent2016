@@ -1,6 +1,9 @@
+{-# Language LambdaCase #-}
 module Main where
 
 import Common
+import Control.Monad
+import Text.Megaparsec
 
 main :: IO ()
 main =
@@ -8,28 +11,19 @@ main =
      print (sum (map decode1 xs))
      print (sum (map decode2 xs))
 
-
-reads1 :: Read a => String -> (a,String)
-reads1 str =
-  case reads str of
-    [x] -> x
-    _   -> error ("reads1: " ++ str)
-
-
 decode1 :: String -> Int
-decode1 ('(':xs) = m*n + decode1 (drop n xs2)
-  where
-    (n,'x':xs1) = reads1 xs
-    (m,')':xs2) = reads1 xs1
-decode1 (_:xs) = 1 + decode1 xs
-decode1 []     = 0
-
+decode1 = mkDecode (\n xs -> n * length xs)
 
 decode2 :: String -> Int
-decode2 ('(':xs) = m * decode2 sub + decode2 xs3
+decode2 = mkDecode (\n xs -> n * decode2 xs)
+
+mkDecode ::
+  (Int -> String -> Int) {- ^ repeated segment logic -} ->
+  String                 {- ^ input string           -} ->
+  Int                    {- ^ decoded length         -}
+mkDecode f = parseOrDie (sum <$> many (plain <|> repeated))
   where
-    (n  ,'x':xs1) = reads1 xs
-    (m  ,')':xs2) = reads1 xs1
-    (sub,    xs3) = splitAt n xs2
-decode2 (_:xs) = 1 + decode2 xs
-decode2 [] = 0
+    plain = length <$> some (satisfy (/='('))
+    repeated =
+       do len <- char '(' *> number <* char 'x'
+          f <$> number <* char ')' <*> replicateM len anyChar
