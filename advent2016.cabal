@@ -12,7 +12,7 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      lib
   exposed-modules:     Common
-  build-depends:       base >=4.9 && <4.10
+  build-depends:       base >=4.9 && <4.10, megaparsec >=5.1 && <5.2
   default-language:    Haskell2010
 
 executable Day01
@@ -62,5 +62,5 @@ executable Day09
 
 executable Day10
   main-is:             Day10.hs
-  build-depends:       advent2016, base >=4.9 && <4.10, containers >=0.5 && <0.6
+  build-depends:       advent2016, base >=4.9 && <4.10, containers >=0.5 && <0.6, megaparsec >= 5.1 && < 5.2
   default-language:    Haskell2010

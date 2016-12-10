@@ -16,7 +16,7 @@ hashLength = 5
 
 main :: IO ()
 main =
-  do input <- parseInput <$> readInputFile 4
+  do input <- parseLines parser <$> readInputFile 4
      let valid = filter isGoodEntry input
      print (sum (map sectorId valid))
      for_ valid $ \e ->
@@ -38,27 +38,11 @@ computeHash x = take hashLength (map fst (sortBy ordering (Map.toList counts)))
        = compare yn xn -- descending
       <> compare xa ya -- ascending
 
-parseInput :: String -> [Entry]
-parseInput s =
-  case parse parserEntries "input" s of
-    Left  e -> error (show e)
-    Right e -> e
-
-parserEntries :: Parser [Entry]
-parserEntries = many parserEntry <* eof
-
-parserEntry :: Parser Entry
-parserEntry = Entry
+parser :: Parser Entry
+parser = Entry
   <$> some letterChar `endBy` char '-'
-  <*> parserNumber
+  <*> number
   <*> bracketed (some letterChar)
-  <*  eol
-
-parserNumber :: Num a => Parser a
-parserNumber = fromInteger . read <$> some digitChar
-
-bracketed :: Parser a -> Parser a
-bracketed = between (char '[') (char ']')
 
 decrypt :: Int -> Char -> Char
 decrypt n c = chr ((ord c - ord 'a' + n) `mod` 26 + ord 'a')

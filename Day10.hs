@@ -1,53 +1,57 @@
 module Main where
 
 import           Common
-import           Data.List
 import           Data.Map (Map)
 import qualified Data.Map as Map
+import           Text.Megaparsec
+import           Text.Megaparsec.String
 
 main :: IO ()
 main =
-  do txt <- readInputFile 10
-
-     let solution = followInstructions
-                  $ map parseInstr
-                  $ lines txt
+  do solution <- followInstructions . parseLines parseInstr <$> readInputFile 10
 
      print [ who | (who,what) <- Map.toList solution
-                 , sort what  == [ 17, 61 ]
-                 ]
+                 , what == Two 17 61 ]
 
-     print $ product $ do i <- [0..2]
-                          solution Map.! Output i
+     print $ product [ v | i <- [0..2]
+                         , let One v = solution Map.! Output i ]
 
-data Instr = Value Int Target | Gives Int Target Target
+-- Types ---------------------------------------------------------------
+
+data Instr = Value !Int !Target | Gives !Target !Target !Target
   deriving Show
 
-data Target = Bot Int | Output Int
+data Target = Bot !Int | Output !Int
   deriving (Eq, Ord, Show)
 
-parseInstr :: String -> Instr
-parseInstr str =
-  case words str of
+data Holding = One !Int | Two !Int !Int
+  deriving Eq
 
-    ["value",n,"goes","to",tgt,m] ->
-      Value (read n) (parseTarget tgt m)
+-- Parsing -------------------------------------------------------------
 
-    ["bot",a,"gives","low","to",tgt1,n,"and","high","to",tgt2,m] ->
-      Gives (read a) (parseTarget tgt1 n) (parseTarget tgt2 m)
+parseInstr :: Parser Instr
+parseInstr =
+         Value <$  string "value " <*> number <* string " goes to " <*> target
+     <|> Gives <$> target <* string " gives low to "
+               <*> target <* string " and high to "
+               <*> target
 
-    _ -> error ("Bad instruction: " ++ str)
-  where
-    parseTarget "bot"    n = Bot    (read n)
-    parseTarget "output" n = Output (read n)
-    parseTarget other    _ = error ("Bad target: " ++ other)
+target :: Parser Target
+target = Bot    <$ string "bot "    <*> number <|>
+         Output <$ string "output " <*> number
 
+-- Solving -------------------------------------------------------------
 
-followInstructions :: [Instr] -> Map Target [Int]
+followInstructions :: [Instr] -> Map Target Holding
 followInstructions xs = result
   where
-    result = Map.fromListWith (++) (concatMap aux xs)
+    result = Map.fromListWithKey combine (concatMap aux xs)
 
-    aux (Value val tgt)   = [ (tgt,[val]) ]
-    aux (Gives src lo hi) = [ (lo ,[l]), (hi,[h]) ]
-      where [l,h] = sort (result Map.! Bot src)
+    aux (Value val tgt)   = [ (tgt, One val) ]
+    aux (Gives src lo hi) = [ (lo , One l), (hi, One h) ]
+      where Two l h = result Map.! src
+
+
+combine :: Target -> Holding -> Holding -> Holding
+combine _ (One x) (One y) = Two (min x y) (max x y)
+combine tgt _ _ = error ("Bad combination for " ++ show tgt)
