@@ -48,6 +48,6 @@ followInstructions xs = result
   where
     result = Map.fromListWith (++) (concatMap aux xs)
 
-    aux (Value val tgt)   = [ (tgt, [val]) ]
-    aux (Gives src lo hi) = [ (lo , [minimum (result Map.! Bot src)])
-                            , (hi , [maximum (result Map.! Bot src)]) ]
+    aux (Value val tgt)   = [ (tgt,[val]) ]
+    aux (Gives src lo hi) = [ (lo ,[l]), (hi,[h]) ]
+      where [l,h] = sort (result Map.! Bot src)
