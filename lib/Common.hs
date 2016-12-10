@@ -33,3 +33,6 @@ number = fromInteger <$> integer
 
 bracketed :: Parser a -> Parser a
 bracketed = between (char '[') (char ']')
+
+wholestring :: String -> Parser String
+wholestring = try . string

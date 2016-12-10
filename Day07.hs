@@ -3,33 +3,26 @@ module Main where
 import Common
 import Control.Monad
 import Data.List
+import Text.Megaparsec
+import Text.Megaparsec.String
 
 main :: IO ()
 main =
-  do xs <- parseInput <$> readInputFile 7
+  do xs <- parseLines parser <$> readInputFile 7
      print (length (filter supportsTLS xs))
      print (length (filter supportsSSL xs))
 
-data Address = Address [Segment]
+newtype Address = Address [Segment]
   deriving (Read, Show, Ord, Eq)
 
 data Segment = Supernet String | Hypernet String
   deriving (Read, Show, Ord, Eq)
 
-parseInput :: String -> [Address]
-parseInput = map parseAddress . lines
-
-parseAddress :: String -> Address
-parseAddress = Address . unfoldr aux
+parser :: Parser Address
+parser = Address <$> many segment
   where
-    aux [] = Nothing
-    aux ('[':xs) =
-      case break (==']') xs of
-        (hypernet,_:ys) -> Just (Hypernet hypernet, ys)
-        _               -> error "parseAddress: mismatched brackets"
-    aux xs =
-      case break (=='[') xs of
-        (normal,ys) -> Just (Supernet normal, ys)
+    segment = Hypernet <$> bracketed (many letterChar) <|>
+              Supernet <$>            some letterChar
 
 supportsTLS :: Address -> Bool
 supportsTLS (Address xs) = any checkSupernet xs && all checkHypernet xs

@@ -5,10 +5,9 @@ import Common
 import Control.Concurrent
 import Control.Monad
 import Data.Array.IO
-import Data.Char
 import Data.Foldable
-import Data.Function
-import Data.List
+import Text.Megaparsec
+import Text.Megaparsec.String
 
 rows, cols :: Int
 rows = 6
@@ -23,7 +22,7 @@ data Command
 main :: IO ()
 main =
   do xs <- readInputFile 8
-     interp (map parseCommand (lines xs))
+     interp (parseLines parser xs)
 
 interp :: [Command] -> IO ()
 interp cmds =
@@ -81,10 +80,8 @@ swap a i j =
      writeArray a i =<< readArray a j
      writeArray a j t
 
-parseCommand :: String -> Command
-parseCommand cmd =
-  case groupBy ((==) `on` isDigit) cmd of
-    ["rotate row y="   ,y," by ",n] -> RotateRow (read y) (read n)
-    ["rotate column x=",x," by ",n] -> RotateCol (read x) (read n)
-    ["rect "           ,x,"x"   ,y] -> Rect      (read x) (read y)
-    _                               -> error cmd
+parser :: Parser Command
+parser =
+  RotateRow <$ wholestring "rotate row y="    <*> number <* string " by " <*> number <|>
+  RotateCol <$ wholestring "rotate column x=" <*> number <* string " by " <*> number <|>
+  Rect      <$ string "rect " <*> number <* char 'x' <*> number
