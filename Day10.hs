@@ -1,12 +1,13 @@
 module Main where
 
+import           Common
 import           Data.List
 import           Data.Map (Map)
 import qualified Data.Map as Map
 
 main :: IO ()
 main =
-  do txt <- readFile "inputs/input10.txt"
+  do txt <- readInputFile 10
 
      let solution = toSolution
                   $ toRoutes

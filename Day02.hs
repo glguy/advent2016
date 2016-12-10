@@ -1,11 +1,12 @@
 module Main where
 
+import Common
 import Data.Foldable (foldl')
 import Data.Array
 
 main :: IO ()
 main =
-  do cmds <- lines <$> readFile "inputs/input2.txt"
+  do cmds <- lines <$> readInputFile 2
      putStrLn (computeCode keys1 cmds)
      putStrLn (computeCode keys2 cmds)
 
@@ -49,3 +50,4 @@ step (r,c) mov =
     'R' -> (r,c+1)
     'U' -> (r-1,c)
     'D' -> (r+1,c)
+    _   -> error ("Bad move: " ++ [mov])

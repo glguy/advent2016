@@ -1,11 +1,12 @@
 module Main where
 
+import Common
 import Control.Monad
 import Data.List
 
 main :: IO ()
 main =
-  do xs <- parseInput <$> readFile "inputs/input7.txt"
+  do xs <- parseInput <$> readInputFile 7
      print (length (filter supportsTLS xs))
      print (length (filter supportsSSL xs))
 
@@ -39,7 +40,7 @@ supportsTLS (Address xs) = any checkSupernet xs && all checkHypernet xs
     checkHypernet (Hypernet ys) = not (hasABBA ys)
     checkHypernet _             = True
 
-    hasABBA xs = any isABBA (tails xs)
+    hasABBA ys = any isABBA (tails ys)
 
     isABBA (w:x:y:z:_) = w == z && x == y && w /= x
     isABBA _ = False

@@ -1,16 +1,14 @@
 module Main where
 
+import Common
 import Data.List
 import Data.List.Split
 
 main :: IO ()
 main =
-  do input <- parseInput <$> readFile "inputs/input3.txt"
+  do input <- parseInput <$> readInputFile 3
      print (count goodTriangle input)
      print (count goodTriangle (rearrange input))
-
-count :: (a -> Bool) -> [a] -> Int
-count p xs = length (filter p xs)
 
 parseInput :: String -> [[Int]]
 parseInput = chunksOf 3 . map read . words

@@ -1,11 +1,10 @@
 module Main where
 
+import Common
 import Data.Char
 import Data.Monoid
 import Data.Foldable
 import Data.List
-import Data.Ord
-import Data.Map (Map)
 import Text.Megaparsec
 import Text.Megaparsec.String
 import qualified Data.Map as Map
@@ -15,8 +14,9 @@ data Entry = Entry { roomName :: [String], sectorId :: Int, roomHash :: String }
 hashLength :: Int
 hashLength = 5
 
+main :: IO ()
 main =
-  do input <- parseInput <$> readFile "inputs/input4.txt"
+  do input <- parseInput <$> readInputFile 4
      let valid = filter isGoodEntry input
      print (sum (map sectorId valid))
      for_ valid $ \e ->
@@ -33,7 +33,7 @@ isGoodEntry e = roomHash e == computeHash (concat (roomName e))
 computeHash :: String -> String
 computeHash x = take hashLength (map fst (sortBy ordering (Map.toList counts)))
   where
-    counts = Map.fromListWith (+) [ (a,1) | a <- x ]
+    counts = Map.fromListWith (+) [ (a,1::Int) | a <- x ]
     ordering (xa,xn) (ya,yn)
        = compare yn xn -- descending
       <> compare xa ya -- ascending

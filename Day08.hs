@@ -1,13 +1,14 @@
 {-# Language TupleSections #-}
 module Main (main) where
 
+import Common
+import Control.Concurrent
+import Control.Monad
 import Data.Array.IO
 import Data.Char
 import Data.Foldable
 import Data.Function
 import Data.List
-import Control.Concurrent
-import Control.Monad
 
 rows, cols :: Int
 rows = 6
@@ -21,7 +22,7 @@ data Command
 
 main :: IO ()
 main =
-  do xs <- readFile "inputs/input8.txt"
+  do xs <- readInputFile 8
      interp (map parseCommand (lines xs))
 
 interp :: [Command] -> IO ()
@@ -54,9 +55,9 @@ toBlock True  = '█'
 toBlock False = ' '
 
 interpCommand :: IOUArray (Int,Int) Bool -> Command -> IO ()
-interpCommand a (Rect x y) =
-  for_ [0 .. x-1] $ \x ->
-  for_ [0 .. y-1] $ \y ->
+interpCommand a (Rect xn yn) =
+  for_ [0 .. xn-1] $ \x ->
+  for_ [0 .. yn-1] $ \y ->
   writeArray a (x,y) True
 
 interpCommand a (RotateCol x n) = rotate a (x,) rows n

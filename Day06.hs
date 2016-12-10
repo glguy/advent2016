@@ -1,13 +1,13 @@
 module Main where
 
+import           Common
 import           Data.List
-import           Data.Map (Map)
 import qualified Data.Map as Map
-import           Data.Monoid
 import           Data.Ord
 
+main :: IO ()
 main =
-  do input <- lines <$> readFile "inputs/input6.txt"
+  do input <- lines <$> readInputFile 6
      putStrLn (decode id   input)
      putStrLn (decode Down input)
 

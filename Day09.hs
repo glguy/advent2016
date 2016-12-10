@@ -1,7 +1,10 @@
 module Main where
 
+import Common
+
+main :: IO ()
 main =
-  do xs <- lines <$> readFile "inputs/input9.txt"
+  do xs <- lines <$> readInputFile 9
      print (sum (map decode1 xs))
      print (sum (map decode2 xs))
 

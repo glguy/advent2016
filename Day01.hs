@@ -1,9 +1,10 @@
 module Main where
 
+import           Common
+
 import           Data.List
 import           Data.List.Split
 import qualified Data.Set as Set
-import           Data.Set (Set)
 
 -- | Positions on the grid
 data Pos = Pos !Int !Int
@@ -16,11 +17,11 @@ data Vec = Vec !Int !Int
 data Command = Command !Char !Int
 
 parseInput :: String -> [Command]
-parseInput xs = [ Command x (read xs) | x:xs <- splitOn ", " xs ]
+parseInput xs = [ Command y (read ys) | y:ys <- splitOn ", " xs ]
 
 main :: IO ()
 main =
-  do cmds <- parseInput <$> readFile "inputs/input1.txt"
+  do cmds <- parseInput <$> readInputFile 1
      let path = computePath cmds
      print (part1 path)
      print (part2 path)
