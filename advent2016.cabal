@@ -11,13 +11,13 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      lib
-  exposed-modules:     Common
-  build-depends:       base >=4.9 && <4.10, megaparsec >=5.1 && <5.2
+  exposed-modules:     Common, Search
+  build-depends:       base >=4.9 && <4.10, megaparsec >=5.1 && <5.2, containers >=0.5 && <0.6
   default-language:    Haskell2010
 
 executable Day01
   main-is:             Day01.hs
-  build-depends:       advent2016, base, megaparsec, containers >=0.5 && <0.6
+  build-depends:       advent2016, base, megaparsec, containers
   default-language:    Haskell2010
 
 executable Day02
@@ -32,17 +32,17 @@ executable Day03
 
 executable Day04
   main-is:             Day04.hs
-  build-depends:       advent2016, base, containers >= 0.5 && <0.6, megaparsec
+  build-depends:       advent2016, base, containers, megaparsec
   default-language:    Haskell2010
 
 executable Day05
   main-is:             Day05.hs
-  build-depends:       advent2016, base, containers >= 0.5 && <0.6, cryptonite >=0.20 && <0.21, bytestring >=0.10 && <0.11
+  build-depends:       advent2016, base, containers, cryptonite >=0.20 && <0.21, bytestring >=0.10 && <0.11
   default-language:    Haskell2010
 
 executable Day06
   main-is:             Day06.hs
-  build-depends:       advent2016, base, containers >= 0.5 && <0.6
+  build-depends:       advent2016, base, containers
   default-language:    Haskell2010
 
 executable Day07
@@ -62,5 +62,10 @@ executable Day09
 
 executable Day10
   main-is:             Day10.hs
-  build-depends:       advent2016, base, containers >=0.5 && <0.6, megaparsec
+  build-depends:       advent2016, base, containers, megaparsec
+  default-language:    Haskell2010
+
+executable Day12
+  main-is:             Day12.hs
+  build-depends:       advent2016, base, containers, megaparsec, vector, lens
   default-language:    Haskell2010

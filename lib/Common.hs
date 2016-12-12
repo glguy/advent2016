@@ -19,7 +19,7 @@ count p xs = length (filter p xs)
 
 parseOrDie :: Parser a -> String -> a
 parseOrDie p str =
-  case parse p "input" str of
+  case parse p str str of
     Left e   -> error (parseErrorPretty e)
     Right xs -> xs
 
@@ -27,7 +27,9 @@ parseLines :: Parser a -> String -> [a]
 parseLines p = parseOrDie (many (p <* eol) <* eof)
 
 number :: Num a => Parser a
-number = fromInteger <$> integer
+number =
+   char '-' *> (negate <$> number) <|>
+   fromInteger <$> integer
 {-# SPECIALIZE number :: Parser Int #-}
 {-# SPECIALIZE number :: Parser Integer #-}
 
