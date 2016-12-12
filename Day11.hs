@@ -2,7 +2,8 @@ module Main where
 
 import Control.Monad
 import Data.List
-import Search (bfs)
+import Search (bfsOnInt)
+import Data.Bits
 import qualified Data.IntMap as IntMap
 
 main :: IO ()
@@ -12,7 +13,7 @@ main =
 
 
 solutionSteps :: Building -> Maybe Int
-solutionSteps = fmap bldgSteps . find isSolved . bfs advanceBuilding
+solutionSteps = fmap bldgSteps . find isSolved . bfsOnInt mkRep advanceBuilding
 
                 -- gen      micro
 data Floor = Floor [Int] [Int]
@@ -27,17 +28,6 @@ data Building = Building
   }
   deriving Show
 
--- | Ignore step count
-instance Eq Building where
-  Building _ n a b c == Building _ m x y z = n == m && b == y && a == x && c == z
-
--- | Ignore step count
-instance Ord Building where
-  Building _ n a b c `compare` Building _ m x y z =
-    compare n m `mappend`
-    compare b y `mappend`
-    compare a x `mappend`
-    compare c z
 
 isEmptyFloor :: Floor -> Bool
 isEmptyFloor (Floor x y) = null x && null y
@@ -102,14 +92,26 @@ moveDown b =
                                   there
                                   (here : higherFloors b)
 
+-- | Characterize a 4-floor building with up to 8 generator/chip pairs
+mkRep :: Building -> Int
+mkRep (Building _ w x y z) =
+  foldl' aux (w `shiftL` 32)
+    (zip [0..] (x ++ y : z))
+  where
+    aux acc (floorId,Floor gens mics) =
+      foldl' aux2 (foldl' aux1 acc gens) mics
+      where
+        aux1 acc gen = acc + floorId `shiftL` (4*gen)
+        aux2 acc mic = acc + floorId `shiftL` (4*mic+2)
+
 part1 :: Building
-part1 = Building 0 1 [] (Floor [1] [1])
-                      [ Floor [2,3,4,5] []
-                      , Floor [] [2,3,4,5]
+part1 = Building 0 0 [] (Floor [1] [1])
+                      [ Floor [2,3,4,0] []
+                      , Floor [] [2,3,4,0]
                       , Floor [] [] ]
 
 part2 :: Building
-part2 = Building 0 1 [] (Floor [1,6,7] [1,6,7])
+part2 = Building 0 0 [] (Floor [1,6,0] [1,6,0])
                       [ Floor [2,3,4,5] []
                       , Floor [] [2,3,4,5]
                       , Floor [] [] ]
