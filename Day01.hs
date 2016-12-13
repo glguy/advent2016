@@ -1,15 +1,12 @@
 module Main where
 
 import           Common
+import           GridCoord
 
 import           Data.List
 import qualified Data.Set as Set
 import           Text.Megaparsec
 import           Text.Megaparsec.String
-
--- | Coorditions on the grid
-data Coord = Coord !Int !Int
-  deriving (Eq, Ord, Show, Read)
 
 -- | Vectors used for incremental steps
 data Vec = Vec !Int !Int
@@ -30,13 +27,13 @@ main =
 -- | Given a list of steps determine the ultimate Manhattan-distance from
 -- the starting position.
 part1 :: [Coord] -> Int
-part1 = distance . last
+part1 = manhattanDistance . last
 
 part2 :: [Coord] -> Maybe Int
-part2 = fmap distance . duplicate
+part2 = fmap manhattanDistance . duplicate
 
 computePath :: [Command] -> [Coord]
-computePath = toCoorditions origin . toSteps north
+computePath = toCoords origin . toSteps north
   where
     origin = Coord 0 0
     north  = Vec 0 1
@@ -50,9 +47,6 @@ duplicate = aux Set.empty
       | Set.member x seen = Just x
       | otherwise         = aux (Set.insert x seen) xs
 
-distance :: Coord -> Int
-distance (Coord x y) = abs x + abs y
-
 toSteps ::
   Vec       {- ^ initial direction  -} ->
   [Command] {- ^ commands           -} ->
@@ -63,11 +57,11 @@ toSteps dir0 cmds = concat (snd (mapAccumL aux dir0 cmds))
       let dir' = turn lr dir
       in (dir', replicate steps dir')
 
-toCoorditions ::
+toCoords ::
   Coord   {- ^ origin -} ->
-  [Vec] {- ^ steps  -} ->
+  [Vec]   {- ^ steps  -} ->
   [Coord] {- ^ path   -}
-toCoorditions = scanl step
+toCoords = scanl step
 
 turn :: Char -> Vec -> Vec
 turn 'L' (Vec dx dy) = Vec (-dy) dx
