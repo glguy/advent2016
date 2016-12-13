@@ -16,8 +16,8 @@ main :: IO ()
 main =
   do let entries = bfsOn entryCoord nextEntries initialEntry
      print $ head [ steps | Entry steps (Coord 31 39) <- entries ]
-     print $ length $ nub [ coord | Entry steps coord <- entries
-                                  , then takeWhile by steps <= 50 ]
+     print $ length [ () | Entry steps _ <- entries
+                         , then takeWhile by steps <= 50 ]
 
 initialEntry :: Entry
 initialEntry = Entry 0 (Coord 1 1)
