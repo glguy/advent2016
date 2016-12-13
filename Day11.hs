@@ -2,7 +2,7 @@ module Main where
 
 import Control.Monad
 import Data.List
-import Search (bfsOnInt)
+import Search (bfsOn)
 import Data.Bits
 import Data.Monoid
 import qualified Data.IntMap as IntMap
@@ -14,7 +14,7 @@ main =
 
 
 solutionSteps :: Building -> Maybe Int
-solutionSteps = fmap bldgSteps . find isSolved . bfsOnInt mkRep advanceBuilding
+solutionSteps = fmap bldgSteps . find isSolved . bfsOn mkRep advanceBuilding
 
                 -- gen      micro
 data Floor = Floor [Int] [Int]
@@ -117,16 +117,3 @@ part2 = Building 0 [] (Floor [1,6,0] [1,6,0])
                       [ Floor [2,3,4,5] []
                       , Floor [] [2,3,4,5]
                       , Floor [] [] ]
-
-isOneSolved :: Building -> Bool
-isOneSolved (Building _ [Floor [] []] _ _) = True
-isOneSolved _ = False
-
-dropOne :: Building -> Building
-dropOne (Building x _ a b) = Building x [] a b
-
-alternative :: Building -> [Int]
-alternative (Building n [] _ []) = return n
-alternative b =
-  do x <- filter isOneSolved (bfsOnInt mkRep advanceBuilding b)
-     alternative (dropOne x)
