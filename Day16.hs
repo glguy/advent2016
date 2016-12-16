@@ -1,39 +1,38 @@
--- Strings are inefficient but it got the job done in time
 module Main where
 
-myInput :: String
-myInput = "01111001100111011"
+import           Data.Monoid
+import           Data.Vector.Unboxed (Vector)
+import qualified Data.Vector.Unboxed as Vector
+
+myInput :: Vector.Vector Bool
+myInput = Vector.fromList (toBool <$> "01111001100111011")
+
+toBool :: Char -> Bool
+toBool x = x == '1'
+
+fromBool :: Bool -> Char
+fromBool x = if x then '1' else '0'
 
 part1, part2 :: Int
 part1 = 272
 part2 = 35651584
 
+expand :: Int -> Vector Bool -> Vector Bool
+expand n seed
+  | Vector.length seed >= n = Vector.take n seed
+  | otherwise = expand n
+              $ seed <> Vector.singleton False <>
+                Vector.map not (Vector.reverse seed)
+
+checksum v
+  | odd n     = fromBool <$> Vector.toList v
+  | otherwise = checksum
+              $ Vector.generate (n`quot`2) $ \i ->
+                   v Vector.! (2*i) == v Vector.! (2*i+1)
+  where
+    n = Vector.length v
+
 main :: IO ()
 main =
-  do putStrLn (checksum (take part1 (filler myInput)))
-     putStrLn (checksum (take part2 (filler myInput)))
-     return ()
-
-toggle :: Char -> Char
-toggle '0' = '1'
-toggle '1' = '0'
-
-filler :: String -> String
-filler seed = seed ++ expand seed
-
-expand :: String -> String
-expand sofar = sofar' ++ expand (sofar ++ sofar')
-  where
-    sofar' = '0' : map toggle (reverse sofar)
-
-checksum :: String -> String
-checksum xs = checksum' (length xs) xs
-
-checksum' n xs
-  | odd n = xs
-  | otherwise = checksum' (n`quot`2) (reduce xs)
-
-reduce (x:y:xs)
-  | x == y    = '1' : reduce xs
-  | otherwise = '0' : reduce xs
-reduce _ = []
+  do putStrLn (checksum (expand part1 myInput))
+     putStrLn (checksum (expand part2 myInput))
