@@ -1,8 +1,6 @@
 -- Strings are inefficient but it got the job done in time
 module Main where
 
-import Data.List
-
 myInput :: String
 myInput = "01111001100111011"
 
@@ -10,7 +8,7 @@ part1, part2 :: Int
 part1 = 272
 part2 = 35651584
 
-main :: ()
+main :: IO ()
 main =
   do putStrLn (checksum (take part1 (filler myInput)))
      putStrLn (checksum (take part2 (filler myInput)))
