@@ -37,7 +37,7 @@ bracketed :: Parser a -> Parser a
 bracketed = between (char '[') (char ']')
 
 parenthesized :: Parser a -> Parser a
-parenthesized = between (char '[') (char ']')
+parenthesized = between (char '(') (char ')')
 
 wholestring :: String -> Parser String
 wholestring = try . string
