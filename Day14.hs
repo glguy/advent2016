@@ -40,12 +40,11 @@ seed i = myinp <> B8.pack (show i)
 
 solve :: Int -> Int
 solve iterations =
-  search 0 (map (B8.unpack . iteratedHash iterations . seed) [0..]) !! 63
+  search (map (B8.unpack . iteratedHash iterations . seed) [0..]) !! 63
 
-search :: Int -> [String] -> [Int]
-search _ [] = []
-search i (h:hs) =
-  do start <- take 1 [ x | x:y:z:_ <- tails h, x==y, y==z]
-     guard (any (replicate 5 start `isInfixOf`) (take 1000 hs))
-     return i
-  ++ search (i+1) hs
+search :: [String] -> [Int]
+search hashes =
+  [ i | (i,h:hs) <- zip [0..] (tails hashes)
+      , start <- take 1 [ x | x:y:z:_ <- tails h, x==y, y==z]
+      , any (replicate 5 start `isInfixOf`) (take 1000 hs)
+      ]
