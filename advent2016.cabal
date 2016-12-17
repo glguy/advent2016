@@ -94,3 +94,8 @@ executable Day16
   main-is:             Day16.hs
   build-depends:       base, vector
   default-language:    Haskell2010
+
+executable Day17
+  main-is:             Day17.hs
+  build-depends:       advent2016, bytestring, base, cryptonite
+  default-language:    Haskell2010
