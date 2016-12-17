@@ -1,3 +1,4 @@
+-- Fast implementation that uses about 80mb of RAM and about 0.2seconds
 module Main where
 
 import           Data.Monoid
