@@ -37,7 +37,7 @@ executable Day04
 
 executable Day05
   main-is:             Day05.hs
-  build-depends:       advent2016, base, containers, cryptonite >=0.20 && <0.22, bytestring >=0.10 && <0.11
+  build-depends:       advent2016, base, containers, cryptohash-md5, bytestring >=0.10 && <0.11
   default-language:    Haskell2010
 
 executable Day06
@@ -82,7 +82,7 @@ executable Day13
 
 executable Day14
   main-is:             Day14.hs
-  build-depends:       base, bytestring >=0.10.8 && <0.11, cryptonite >=0.20 && <0.22, memory >=0.13 && <0.15
+  build-depends:       base, bytestring >=0.10.8 && <0.11, cryptohash-md5, memory >=0.13 && <0.15
   default-language:    Haskell2010
 
 executable Day15
@@ -97,7 +97,7 @@ executable Day16
 
 executable Day17
   main-is:             Day17.hs
-  build-depends:       advent2016, bytestring, base, cryptonite
+  build-depends:       advent2016, bytestring, base, cryptohash-md5
   default-language:    Haskell2010
 
 executable Day18

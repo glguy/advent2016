@@ -1,7 +1,7 @@
 module Main where
 
 import           Control.Monad
-import           Crypto.Hash
+import           Crypto.Hash.MD5
 import           Data.List
 import           Search (bfs)
 import qualified Data.ByteString.Char8 as B8
@@ -38,7 +38,7 @@ nextStates (x,y,path) =
 
 
 hashmd5 :: String -> String
-hashmd5 str = show (hash (B8.pack str) :: Digest MD5)
+hashmd5 str = show (hash (B8.pack str))
 
 
 directions :: String -> [Char]

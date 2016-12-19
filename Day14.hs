@@ -2,7 +2,7 @@
 module Main where
 
 import Control.Monad
-import Crypto.Hash
+import Crypto.Hash.MD5
 import Data.ByteArray (convert)
 import Data.ByteString.Builder
 import Data.ByteString.Builder.Extra
@@ -22,11 +22,11 @@ main =
 
 -- | Hash a bytestring to to ASCII encoded, lowercase hex
 hashmd5 :: B.ByteString -> B.ByteString
-hashmd5 str
+hashmd5
   = L.toStrict
-  $ toLazyByteStringWith md5strategy L.empty
-  $ byteStringHex
-  $ convert (hash str :: Digest MD5)
+  . toLazyByteStringWith md5strategy L.empty
+  . byteStringHex
+  . hash
   where
     md5strategy = untrimmedStrategy 32 32
 

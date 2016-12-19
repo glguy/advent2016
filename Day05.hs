@@ -1,6 +1,6 @@
 module Main where
 
-import           Crypto.Hash
+import           Crypto.Hash.MD5
 import qualified Data.IntMap as IntMap
 import           Data.IntMap (IntMap)
 import qualified Data.ByteString.Char8 as B
@@ -55,6 +55,6 @@ digitStream :: [(Char,Char)]
 digitStream = go (0 :: Int)
   where
     go i =
-      case splitAt 5 (show (hash (input <> B.pack (show i)) :: Digest MD5)) of
+      case splitAt 5 (show (hash (input <> B.pack (show i)))) of
         ("00000",c1:c2:_) -> (c1,c2) : go (i+1)
         _ -> go (i+1)
