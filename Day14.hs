@@ -3,7 +3,6 @@ module Main where
 
 import Control.Monad
 import Crypto.Hash.MD5
-import Data.ByteArray (convert)
 import Data.ByteString.Builder
 import Data.ByteString.Builder.Extra
 import Data.List
