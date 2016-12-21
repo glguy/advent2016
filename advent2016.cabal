@@ -114,3 +114,8 @@ executable Day20
   main-is:             Day20.hs
   build-depends:       base, advent2016, megaparsec
   default-language:    Haskell2010
+
+executable Day21
+  main-is:             Day21.hs
+  build-depends:       base, advent2016, megaparsec
+  default-language:    Haskell2010
