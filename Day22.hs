@@ -43,8 +43,7 @@ main =
      print $ viable grid
      print $ head
              [ cost | (SearchState (Coord 0 0) _, cost)
-                        <- astar (next grid)
-                                   (SearchState start hole)
+                        <- astar (next grid) (SearchState start hole)
                     ]
 
 viable grid = length
@@ -63,19 +62,17 @@ data SearchState = SearchState
 
 next :: Map Coord Node -> SearchState -> [(SearchState, Int, Int)]
 next grid SearchState{..} =
-  do newHole <- cardinalNeighbors searchHole
+  [ (SearchState newGoal newHole,1,h)
+     | newHole <- cardinalNeighbors searchHole
+     , Map.member newHole grid
+     , let newGoal
+             | searchGoal == newHole = searchHole
+             | otherwise             = searchGoal
 
-     guard (Map.member newHole grid)
+           h = manhattanDistance newGoal
+             + manhattanDistance (diff newHole newGoal)
+             - 1 ]
 
-     let newGoal
-           | searchGoal == newHole = searchHole
-           | otherwise             = searchGoal
-
-     let h = manhattanDistance newGoal
-           + manhattanDistance (diff newHole newGoal)
-           - 1
-
-     return (SearchState newGoal newHole,1,h)
 
 diff :: Coord -> Coord -> Coord
 diff (Coord x1 y1) (Coord x2 y2) = Coord (x1-x2) (y1-y2)

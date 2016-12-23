@@ -124,3 +124,8 @@ executable Day22
   main-is:             Day22.hs
   build-depends:       base, advent2016, megaparsec, containers
   default-language:    Haskell2010
+
+executable Day23
+  main-is:             Day23.hs
+  build-depends:       advent2016, base, containers, megaparsec, vector, lens
+  default-language:    Haskell2010
