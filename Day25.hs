@@ -48,13 +48,13 @@ parseFile =
 reg :: Functor f => Char -> LensLike' f Regs Int
 reg r = at r . non 0
 
-data Progress = NoOutput | NeedOne | NeedZero
+data Progress = NeedOne | NeedZero
 
 execute :: Vector Inst -> Int -> Bool
 execute program a = evalState theMain Map.empty
   where
     theMain = do reg 'a' .= a
-                 goto NoOutput Set.empty 0
+                 goto NeedZero Set.empty 0
 
     rval = \case
       Num i -> return i
@@ -64,14 +64,14 @@ execute program a = evalState theMain Map.empty
       Out o ->
          do v <- rval o
             case (progress, v) of
-              (NoOutput, 0) -> goto NeedOne  targets (pc+1)
               (NeedOne,  1) -> goto NeedZero targets (pc+1)
               (NeedZero, 0) ->
                   do registers <- get
-                     if Set.member registers targets then
+                     let now = (pc,registers)
+                     if Set.member now targets then
                        return True
                      else
-                       goto NeedOne (Set.insert registers targets) (pc+1)
+                       goto NeedOne (Set.insert now targets) (pc+1)
               _ -> return False
 
       Copy i o -> do reg o <~ rval i
