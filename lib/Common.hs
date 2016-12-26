@@ -1,5 +1,7 @@
+{-# Language BangPatterns #-}
 module Common where
 
+import           Control.Monad.State
 import           System.Environment
 import           Text.Megaparsec
 import           Text.Megaparsec.String
@@ -41,3 +43,7 @@ parenthesized = between (char '(') (char ')')
 
 wholestring :: String -> Parser String
 wholestring = try . string
+
+strictState :: MonadState s m => m a -> m a
+strictState m = do !_ <- get; m
+{-# INLINE strictState #-}

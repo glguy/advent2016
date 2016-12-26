@@ -1,40 +1,42 @@
-{-# Language LambdaCase #-}
+{-# Language TemplateHaskell, LambdaCase #-}
 module Main where
 
 import           AsmProg
 import           Common
 import           Control.Lens
+import           Control.Monad.Trans.State.Strict
 import           Data.Foldable
 import           Data.Map (Map)
 import qualified Data.Map as Map
 import           Data.Vector (Vector)
 import qualified Data.Vector as Vector
-import           Debug.Trace
-import           Text.Megaparsec
+import           Text.Megaparsec hiding (State)
 import           Text.Megaparsec.String
+
+data Inst
+  = Copy Value !Register
+  | Inc !Register
+  | Dec !Register
+  | Jnz Value Value
+  | Tgl Value
+ deriving Show
+
+data Machine = Machine
+  { _machRegisters :: !Registers
+  , _machProgram   :: !(Vector Inst)
+  }
+
+makeLenses '' Machine
+
+instance HasRegisters Machine where
+  reg r = machRegisters . reg r
+  {-# INLINE reg #-}
 
 main :: IO ()
 main =
   do program <- Vector.fromList . parseLines parseFile <$> readInputFile 23
      print (execute program 7)
      print (execute program 12)
-
-data Value = Num !Int | Reg !Char
- deriving Show
-
-data Inst
-  = Copy Value !Char
-  | Inc !Char
-  | Dec !Char
-  | Jnz Value Value
-  | Tgl Value
- deriving Show
-
-pReg :: Parser Char
-pReg = oneOf "abcd"
-
-pValue :: Parser Value
-pValue = Num <$> number <|> Reg <$> pReg
 
 parseFile :: Parser Inst
 parseFile =
@@ -44,40 +46,40 @@ parseFile =
   Inc  <$ wholestring "inc " <*> pReg <|>
   Dec  <$ wholestring "dec " <*> pReg
 
-execute :: Vector Inst -> Int -> Registers
-execute program0 a = zeroRegisters &~ mainEntry
+execute :: Vector Inst -> Int -> Int
+execute program0 a =
+  evalState mainEntry (Machine zeroRegisters program0)
   where
     mainEntry =
-      do reg 'a' .= a
-         goto program0 0
+      do reg (Register 'a') .= a
+         goto 0
 
-    rval = \case
-      Num i -> return i
-      Reg r -> use (reg r)
+    step pc o =
+      case o of
+        Copy i o -> (reg o <~ rval i) >> goto (pc+1)
+        Inc r    -> (reg r += 1)      >> goto (pc+1)
+        Dec r    -> (reg r -= 1)      >> goto (pc+1)
+        Tgl r    -> do v <- rval r
+                       toggle (pc+v)
+                       goto (pc+1)
+        Jnz i o  -> do v  <- rval i
+                       o' <- rval o
+                       goto (if v == 0 then pc+1 else pc+o')
 
-    step pc program = \case
-      Copy i o -> (1,program) <$ (reg o <~ rval i)
-      Inc r    -> (1,program) <$ (reg r += 1)
-      Dec r    -> (1,program) <$ (reg r -= 1)
-      Tgl r    -> do v <- rval r
-                     return (1, toggle program (pc+v))
-      Jnz i o  -> do v  <- rval i
-                     o' <- rval o
-                     return $! (if v == 0 then 1 else o', program)
+    toggle :: Int -> State Machine ()
+    toggle pc =
+      machProgram . ix pc %= \oper ->
+        case oper of
+          Inc x         -> Dec x
+          Dec x         -> Inc x
+          Tgl   (Reg x) -> Inc x
+          Jnz x (Reg y) -> Copy x y
+          Copy x y      -> Jnz x (Reg y)
+          _ -> error ("Nonsense toggle: " ++ show pc ++ " " ++ show oper)
 
-    goto program pc =
-      for_ (program Vector.!? pc) $ \o ->
-        do (offset,program') <- step pc program o
-           goto program' (pc + offset :: Int)
+    goto pc = strictState $
+      do program <- use machProgram
+         case program Vector.!? pc of
+           Just o -> step pc o
+           Nothing -> use (reg (Register 'a'))
 
-toggle :: Vector Inst -> Int -> Vector Inst
-toggle program pc =
-  traceShow pc $
-  program & ix pc %~ \oper ->
-    case oper of
-      Inc x         -> Dec x
-      Dec x         -> Inc x
-      Tgl   (Reg x) -> Inc x
-      Jnz x (Reg y) -> Copy x y
-      Copy x y      -> Jnz x (Reg y)
-      _ -> error ("Nonsense toggle: " ++ show pc ++ " " ++ show oper)

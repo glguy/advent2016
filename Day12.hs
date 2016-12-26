@@ -18,36 +18,26 @@ main =
      print (execute program 0)
      print (execute program 1)
 
-data Value = Num !Int | Reg !Char
- deriving Show
-
 data Inst
-  = Copy Value !Char
-  | Inc !Char
-  | Dec !Char
+  = Copy Value !Register
+  | Inc !Register
+  | Dec !Register
   | Jnz Value !Int
  deriving Show
 
-value :: Parser Value
-value = Num <$> number <|> Reg <$> letterChar
-
 parseFile :: Parser Inst
 parseFile =
-  Copy <$ wholestring "cpy " <*> value <* char ' ' <*> anyChar <|>
-  Jnz  <$ wholestring "jnz " <*> value <* char ' ' <*> number <|>
-  Inc  <$ wholestring "inc " <*> letterChar <|>
-  Dec  <$ wholestring "dec " <*> letterChar
+  Copy <$ wholestring "cpy " <*> pValue <* char ' ' <*> pReg <|>
+  Jnz  <$ wholestring "jnz " <*> pValue <* char ' ' <*> number <|>
+  Inc  <$ wholestring "inc " <*> pReg <|>
+  Dec  <$ wholestring "dec " <*> pReg
 
 execute :: Vector Inst -> Int -> Registers
 execute program c = zeroRegisters &~ mainEntry
   where
     mainEntry =
-      do reg 'c' .= c
+      do reg (Register 'c') .= c
          goto 0
-
-    rval = \case
-      Num i -> return i
-      Reg r -> use (reg r)
 
     step = \case
       Copy i o -> 1 <$ (reg o <~ rval i)
@@ -56,7 +46,7 @@ execute program c = zeroRegisters &~ mainEntry
       Jnz i o  -> do v <- rval i
                      return $! if v == 0 then 1 else o
 
-    goto pc =
+    goto pc = strictState $
       for_ (program Vector.!? pc) $ \o ->
         do offset <- step o
            goto (pc + offset)
