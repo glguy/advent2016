@@ -1,6 +1,7 @@
 {-# Language LambdaCase #-}
 module Main where
 
+import           AsmProg
 import           Common
 import           Control.Lens
 import           Data.Foldable
@@ -29,8 +30,6 @@ data Inst
   | Tgl Value
  deriving Show
 
-type Regs = Map Char Int
-
 pReg :: Parser Char
 pReg = oneOf "abcd"
 
@@ -45,12 +44,13 @@ parseFile =
   Inc  <$ wholestring "inc " <*> pReg <|>
   Dec  <$ wholestring "dec " <*> pReg
 
-reg :: Functor f => Char -> LensLike' f Regs Int
-reg r = at r . non 0
-
-execute :: Vector Inst -> Int -> Regs
-execute program0 a = Map.singleton 'a' a &~ goto program0 0
+execute :: Vector Inst -> Int -> Registers
+execute program0 a = zeroRegisters &~ mainEntry
   where
+    mainEntry =
+      do reg 'a' .= a
+         goto program0 0
+
     rval = \case
       Num i -> return i
       Reg r -> use (reg r)

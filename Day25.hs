@@ -1,6 +1,7 @@
 {-# Language LambdaCase #-}
 module Main where
 
+import           AsmProg
 import           Common
 import           Control.Lens
 import           Data.List
@@ -29,8 +30,6 @@ data Inst
   | Out Value
  deriving Show
 
-type Regs = Map Char Int
-
 pReg :: Parser Char
 pReg = oneOf "abcd"
 
@@ -45,13 +44,10 @@ parseFile =
   Dec  <$ wholestring "dec " <*> pReg <|>
   Out  <$ wholestring "out " <*> pValue
 
-reg :: Functor f => Char -> LensLike' f Regs Int
-reg r = at r . non 0
-
 data Progress = NeedOne | NeedZero
 
 execute :: Vector Inst -> Int -> Bool
-execute program a = evalState theMain Map.empty
+execute program a = evalState theMain zeroRegisters
   where
     theMain = do reg 'a' .= a
                  goto NeedZero Set.empty 0

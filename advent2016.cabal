@@ -11,8 +11,8 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      lib
-  exposed-modules:     Common, Search, GridCoord
-  build-depends:       base >=4.9 && <4.10, megaparsec >=5.0 && <5.2, containers >=0.5 && <0.6
+  exposed-modules:     Common, Search, GridCoord, AsmProg
+  build-depends:       base >=4.9 && <4.10, megaparsec >=5.0 && <5.2, containers >=0.5 && <0.6, array >= 0.5 && <0.6, lens >= 4.15 && <4.16
   default-language:    Haskell2010
 
 executable Day01
@@ -132,7 +132,7 @@ executable Day23
 
 executable Day24
   main-is:             Day24.hs
-  build-depends:       advent2016, base, containers
+  build-depends:       advent2016, base, array, containers
   default-language:    Haskell2010
 
 executable Day25
