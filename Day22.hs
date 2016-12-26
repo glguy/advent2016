@@ -3,12 +3,12 @@ module Main where
 
 import Common
 import Control.Monad
-import Data.Map ( Map )
 import GridCoord
 import Search
 import Text.Megaparsec
 import Text.Megaparsec.String
-import qualified Data.Map as Map
+import Data.Array (Array)
+import qualified Data.Array as Array
 
 data Node = Node { nodeSize, nodeUsed :: !Int }
   deriving (Show)
@@ -23,10 +23,9 @@ parseNode =
      _percent <- number <* char '%'
      return (Coord x y, Node{..})
 
-parseInput :: String -> Map Coord Node
+parseInput :: String -> Array Coord Node
 parseInput
-  = Map.filter (\n -> nodeUsed n < cutoff)
-  . Map.fromList . parseLines parseNode
+  = coordArray (error "hole in grid") . parseLines parseNode
   . unlines . drop 2 . lines -- header lines
 
 -- Hardcode a constant I computed for my particular input.
@@ -47,24 +46,27 @@ main =
                     ]
 
 viable grid = length
-  [() | (c1,n1) <- Map.toList grid
-      , (c2,n2) <- Map.toList grid
+  [() | (c1,n1) <- Array.assocs grid
+      , (c2,n2) <- Array.assocs grid
       , c1 /= c2
       , nodeUsed n1 /= 0
       , nodeUsed n1 <= nodeSize n2 - nodeUsed n2 ]
 
-findStart grid = maximum [ Coord x 0 | Coord x 0 <- Map.keys grid ]
-findHole  grid = head [ c | (c,n) <- Map.toList grid, nodeUsed n == 0 ]
+findStart grid =
+  maximum [ Coord x 0 | Coord x 0 <- Array.range (Array.bounds grid) ]
+
+findHole grid = head [ c | (c,n) <- Array.assocs grid, nodeUsed n == 0 ]
 
 data SearchState = SearchState
   { searchGoal, searchHole :: !Coord }
   deriving (Eq, Ord, Read, Show)
 
-next :: Map Coord Node -> SearchState -> [(SearchState, Int, Int)]
+next :: Array Coord Node -> SearchState -> [(SearchState, Int, Int)]
 next grid SearchState{..} =
   [ (SearchState newGoal newHole,1,h)
      | newHole <- cardinalNeighbors searchHole
-     , Map.member newHole grid
+     , node    <- indexArray grid newHole
+     , nodeSize node < cutoff
      , let newGoal
              | searchGoal == newHole = searchHole
              | otherwise             = searchGoal
@@ -72,7 +74,3 @@ next grid SearchState{..} =
            h = manhattanDistance newGoal origin
              + manhattanDistance newHole newGoal
              - 1 ]
-
-
-diff :: Coord -> Coord -> Coord
-diff (Coord x1 y1) (Coord x2 y2) = Coord (x1-x2) (y1-y2)
