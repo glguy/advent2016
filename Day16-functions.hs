@@ -7,9 +7,8 @@ module Main (main) where
 import           Data.Vector.Unboxed (Vector)
 import qualified Data.Vector.Unboxed as Vector
 import           Control.Parallel.Strategies (parMap, rseq)
-import           Control.Parallel
 import           System.IO
-import           GHC.Types
+import           UnboxFunctions
 import           GHC.Prim
 
 myInput :: Vector.Vector Bool
@@ -41,22 +40,17 @@ solve n = buildChecksum n (buildLookup n)
 buildChecksum :: Int -> (Int# -> Bool) -> String
 buildChecksum sz f
   | odd sz    = parMap rseq (fromBool . (f $#)) [0..sz-1]
-  | otherwise = buildChecksum (sz`quot`2) $ unbox $ \i -> (f $# i*2) == (f $# i*2+1)
+  | otherwise = buildChecksum (sz`quot`2) $ unbox $ \i ->
+                  (f $# i*2) == (f $# (i*2+1::Int))
 
 buildLookup :: Int -> Int# -> Bool
-buildLookup sz = aux (Vector.length myInput) (unbox (Vector.unsafeIndex myInput))
+buildLookup sz = aux (Vector.length myInput)
+                     (unbox (Vector.unsafeIndex myInput))
   where
     aux n f
       | n >= sz = f
       | otherwise = aux (2*n+1) $ unbox $ \i ->
                       case compare i n of
-                        LT -> f $# i
-                        GT -> not (f $# 2*n-i)
+                        LT ->       f $# i
+                        GT -> not $ f $# 2*n-i
                         EQ -> False
-
-unbox :: (Int -> a) -> Int# -> a
-unbox = \f i -> f (I# i)
-
-($#) :: (Int# -> a) -> Int -> a
-($#) = \f (I# i) -> (f i)
-infixr 0 $#
