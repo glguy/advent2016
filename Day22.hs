@@ -42,8 +42,8 @@ main =
          hole  = findHole grid
      print $ viable grid
      print $ head
-             [ cost | (SearchState (Coord 0 0) _, cost)
-                        <- astar (next grid) (SearchState start hole)
+             [ cost | (ss, cost) <- astar (next grid) (SearchState start hole)
+                    , searchGoal ss == origin
                     ]
 
 viable grid = length
@@ -69,8 +69,8 @@ next grid SearchState{..} =
              | searchGoal == newHole = searchHole
              | otherwise             = searchGoal
 
-           h = manhattanDistance newGoal
-             + manhattanDistance (diff newHole newGoal)
+           h = manhattanDistance newGoal origin
+             + manhattanDistance newHole newGoal
              - 1 ]
 
 

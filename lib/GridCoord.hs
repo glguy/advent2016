@@ -17,8 +17,11 @@ cardinalNeighbors (Coord x y) =
   , Coord x (y-1)
   ]
 
-manhattanDistance :: Coord -> Int
-manhattanDistance (Coord x y) = abs x + abs y
+origin :: Coord
+origin = Coord 0 0
+
+manhattanDistance :: Coord -> Coord -> Int
+manhattanDistance (Coord x y) (Coord u v) = abs (x-u) + abs (y-v)
 {-# INLINE manhattanDistance #-}
 
 instance Ix Coord where
@@ -27,7 +30,7 @@ instance Ix Coord where
   inRange (Coord loX loY, Coord hiX hiY) (Coord x y)
      = loX <= x && x <= hiX && loY <= y && y <= hiY
   unsafeIndex (Coord loX loY, Coord hiX hiY) (Coord x y)
-     = x + y * (hiX - loX + 1)
+     = (x - loX) + (y - loY) * (hiX - loX + 1)
 
 coordArray :: a -> [(Coord, a)] -> Array Coord a
 coordArray def xs =

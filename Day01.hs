@@ -27,16 +27,15 @@ main =
 -- | Given a list of steps determine the ultimate Manhattan-distance from
 -- the starting position.
 part1 :: [Coord] -> Int
-part1 = manhattanDistance . last
+part1 = manhattanDistance origin . last
 
 part2 :: [Coord] -> Maybe Int
-part2 = fmap manhattanDistance . duplicate
+part2 = fmap (manhattanDistance origin) . duplicate
 
 computePath :: [Command] -> [Coord]
 computePath = toCoords origin . toSteps north
   where
-    origin = Coord 0 0
-    north  = Vec 0 1
+    north  = Vec 0 (-1)
 
 -- | Find the first duplicate element in a list
 duplicate :: Ord a => [a] -> Maybe a

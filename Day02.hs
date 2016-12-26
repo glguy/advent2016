@@ -3,6 +3,7 @@ module Main where
 import Common
 import Data.Foldable (foldl')
 import Data.Array
+import GridCoord
 
 main :: IO ()
 main =
@@ -10,28 +11,28 @@ main =
      putStrLn (computeCode keys1 cmds)
      putStrLn (computeCode keys2 cmds)
 
-keys1 :: Array (Int,Int) Char
-keys1 = listArray ((-1,-1),(1,1))
+keys1 :: Array Coord Char
+keys1 = listArray (Coord (-1) (-1), Coord 1 1)
   "123\
   \456\
   \789"
 
-keys2 :: Array (Int,Int) Char
-keys2 = listArray ((-2,-2),(2,2))
+keys2 :: Array Coord Char
+keys2 = listArray (Coord (-2) (-2), Coord 2 2)
   "..1..\
   \.234.\
   \56789\
   \.ABC.\
   \..D.."
 
-computeCode :: Array (Int,Int) Char -> [String] -> String
-computeCode ks cmds = map (ks!) (tail (scanl (process ks) (0,0) cmds))
+computeCode :: Array Coord Char -> [String] -> String
+computeCode ks cmds = map (ks!) (tail (scanl (process ks) origin cmds))
 
 process ::
-  Array (Int,Int) Char {- ^ key pad           -} ->
-  (Int,Int)            {- ^ starting position -} ->
-  String               {- ^ command           -} ->
-  (Int,Int)            {- ^ stopping position -}
+  Array Coord Char {- ^ key pad           -} ->
+  Coord            {- ^ starting position -} ->
+  String           {- ^ command           -} ->
+  Coord            {- ^ stopping position -}
 process ks = foldl' aux
   where
     aux pos mov
@@ -40,14 +41,14 @@ process ks = foldl' aux
       where
         pos' = step pos mov
 
-isValid :: Array (Int,Int) Char -> (Int,Int) -> Bool
-isValid ks i = inRange (bounds ks) i && ks ! i /= '.'
+isValid :: Array Coord Char -> Coord -> Bool
+isValid ks i = maybe False (/= '.') (indexArray ks i)
 
-step :: (Int,Int) -> Char -> (Int,Int)
-step (r,c) mov =
+step :: Coord -> Char -> Coord
+step (Coord x y) mov =
   case mov of
-    'L' -> (r,c-1)
-    'R' -> (r,c+1)
-    'U' -> (r-1,c)
-    'D' -> (r+1,c)
+    'L' -> Coord (x-1) y
+    'R' -> Coord (x+1) y
+    'U' -> Coord x (y-1)
+    'D' -> Coord x (y+1)
     _   -> error ("Bad move: " ++ [mov])
