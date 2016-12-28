@@ -52,19 +52,19 @@ moveGens, moveMics, movePair :: Floor -> Floor -> [(Floor, Floor)]
 moveGens (Floor gens mics) (Floor gens' mics') =
   do sel <- pick gens
      return (Floor (gens \\ sel) mics
-            ,Floor (sort (sel++gens')) mics'
+            ,Floor (sel++gens') mics'
             )
 
 moveMics (Floor gens mics) (Floor gens' mics') =
   do sel <- pick mics
      return (Floor gens (mics \\ sel)
-            ,Floor gens' (sort (sel++mics'))
+            ,Floor gens' (sel++mics')
             )
 
 movePair (Floor gens mics) (Floor gens' mics') =
   do sel <- intersect gens mics
      return (Floor (delete sel gens) (delete sel mics)
-            ,Floor (insert sel gens') (insert sel mics')
+            ,Floor (sel : gens') (sel : mics')
             )
 
 pick :: [a] -> [[a]]
