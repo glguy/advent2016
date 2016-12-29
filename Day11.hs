@@ -53,7 +53,8 @@ pickFromFloor (Floor gs ms) =
                  return (xs, SBS.empty, Floor (SBS.difference gs xs) ms)
     twoMics = do xs <- SBS.fromList <$> pick2 mics
                  return (SBS.empty, xs, Floor gs (SBS.difference ms xs))
-    pair    = do x <- SBS.singleton <$> SBS.toList (SBS.intersection gs ms)
+    pair    = do x <- SBS.singleton <$>
+                        take 1 (SBS.toList (SBS.intersection gs ms))
                  return (x, x, Floor (SBS.difference gs x) (SBS.difference ms x))
     oneGen  = do x <- SBS.singleton <$> gens
                  return (x, SBS.empty, Floor (SBS.difference gs x) ms)
