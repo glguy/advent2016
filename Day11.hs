@@ -1,3 +1,4 @@
+{-# Language BangPatterns #-}
 module Main where
 
 import Control.Monad
@@ -5,6 +6,8 @@ import Data.List
 import Search (bfsOn)
 import Data.Bits
 import Data.Monoid
+import SmallBitSet (SmallBitSet)
+import qualified SmallBitSet as SBS
 import qualified Data.IntMap as IntMap
 
 main :: IO ()
@@ -14,10 +17,11 @@ main =
 
 
 solutionSteps :: Building -> Maybe Int
-solutionSteps = fmap bldgSteps . find isSolved . bfsOn mkRep advanceBuilding
+solutionSteps =
+  fmap bldgSteps . find isSolved . bfsOn mkRep advanceBuilding
 
                 -- gen      micro
-data Floor = Floor [Int] [Int]
+data Floor = Floor !SmallBitSet !SmallBitSet
   deriving (Eq, Ord, Show)
 
 data Building = Building
@@ -30,90 +34,90 @@ data Building = Building
 
 
 isEmptyFloor :: Floor -> Bool
-isEmptyFloor (Floor x y) = null x && null y
+isEmptyFloor (Floor x y) = SBS.null x && SBS.null y
 
 isSolved :: Building -> Bool
 isSolved b = null (higherFloors b) && all isEmptyFloor (lowerFloors b)
 
 isValidFloor :: Floor -> Bool
-isValidFloor (Floor gens mics) = null gens || all (`elem` gens) mics
+isValidFloor (Floor gens mics) =
+  SBS.null gens || SBS.null (SBS.difference mics gens)
 
-moveFrom :: Floor -> Floor -> Bool -> [(Floor, Floor)]
+pickFromFloor :: Floor -> [ (SmallBitSet, SmallBitSet, Floor) ]
+pickFromFloor (Floor gs ms) =
+  pair ++ twoGens ++ twoMics ++ oneGen ++ oneMic
+  where
+    gens = SBS.toList gs
+    mics = SBS.toList ms
+    twoGens = do xs <- SBS.fromList <$> pick2 gens
+                 return (xs, SBS.empty, Floor (SBS.difference gs xs) ms)
+    twoMics = do xs <- SBS.fromList <$> pick2 mics
+                 return (SBS.empty, xs, Floor gs (SBS.difference ms xs))
+    pair    = do x <- SBS.singleton <$> SBS.toList (SBS.intersection gs ms)
+                 return (x, x, Floor (SBS.difference gs x) (SBS.difference ms x))
+    oneGen  = do x <- SBS.singleton <$> gens
+                 return (x, SBS.empty, Floor (SBS.difference gs x) ms)
+    oneMic  = do x <- SBS.singleton <$> mics
+                 return (SBS.empty, x, Floor gs (SBS.difference ms x))
 
-moveFrom here there allowPairs =
-  do (here', there') <- ((if allowPairs then movePair else mempty) <>
-                         moveGens <> moveMics) here there
-     guard (isValidFloor here')
-     guard (isValidFloor there')
-     return (here', there')
-
-moveGens, moveMics, movePair :: Floor -> Floor -> [(Floor, Floor)]
-
-moveGens (Floor gens mics) (Floor gens' mics') =
-  do sel <- pick gens
-     return (Floor (gens \\ sel) mics
-            ,Floor (sel++gens') mics'
-            )
-
-moveMics (Floor gens mics) (Floor gens' mics') =
-  do sel <- pick mics
-     return (Floor gens (mics \\ sel)
-            ,Floor gens' (sel++mics')
-            )
-
-movePair (Floor gens mics) (Floor gens' mics') =
-  do sel <- intersect gens mics
-     return (Floor (delete sel gens) (delete sel mics)
-            ,Floor (sel : gens') (sel : mics')
-            )
-
-pick :: [a] -> [[a]]
-pick xs = [ [x,y] | x:ys <- tails xs, y <- ys ]
-       <> map pure xs
+pick2 :: [a] -> [[a]]
+pick2 xs = [ [x,y] | x:ys <- tails xs, y <- ys ]
 
 advanceBuilding :: Building -> [Building]
-advanceBuilding b = moveUp b ++ moveDown b
+advanceBuilding b =
+  do (gens, mics, floor') <- pickFromFloor (currentFloor b)
+     guard (isValidFloor floor')
+     moveUp gens mics b { currentFloor = floor' }
+        <> moveDown gens mics b { currentFloor = floor' }
 
-moveUp :: Building -> [Building]
-moveUp b =
+moveUp :: SmallBitSet -> SmallBitSet -> Building -> [Building]
+moveUp g m b =
   case higherFloors b of
-    [] -> []
-    x:xs -> do (here,there) <- moveFrom (currentFloor b) x True
+    Floor gens mics:xs
+      | isValidFloor here ->
                return $! Building (bldgSteps b + 1)
-                                  (here : lowerFloors b)
-                                  there
+                                  ( currentFloor b : lowerFloors b)
+                                  here
                                   xs
+        where here = Floor (SBS.union g gens) (SBS.union m mics)
+    _ -> []
 
-moveDown :: Building -> [Building]
-moveDown b =
+moveDown :: SmallBitSet -> SmallBitSet -> Building -> [Building]
+moveDown g m b =
   case lowerFloors b of
-    [] -> []
-    x:xs -> do (here,there) <- moveFrom (currentFloor b) x False
+    Floor gens mics:xs
+      | isValidFloor here ->
                return $! Building (bldgSteps b + 1)
                                   xs
-                                  there
-                                  (here : higherFloors b)
+                                  here
+                                  ( currentFloor b : higherFloors b)
+        where here = Floor (SBS.union g gens) (SBS.union m mics)
+    _ -> []
 
--- | Characterize a 4-floor building with up to 8 generator/chip pairs
+
+-- | Characterize a 4-floor building with up to 7 generator/chip pairs
 mkRep :: Building -> Int
 mkRep (Building _ x y z) =
-  foldl' aux (length x `shiftL` 32)
-    (zip [0..] (x ++ y : z))
+  foldl' aux (length x)
+    (x ++ y : z)
   where
-    aux acc (floorId,Floor gens mics) =
-      foldl' aux2 (foldl' aux1 acc gens) mics
-      where
-        aux1 acc gen = acc + floorId `shiftL` (4*gen)
-        aux2 acc mic = acc + floorId `shiftL` (4*mic+2)
+    aux acc (Floor gens mics) =
+      acc             `shiftL` 14 .|.
+      SBS.setRep gens `shiftL`  7 .|.
+      SBS.setRep mics
+
+
+mkFloor :: [Int] -> [Int] -> Floor
+mkFloor xs ys = Floor (SBS.fromList xs) (SBS.fromList ys)
 
 part1 :: Building
-part1 = Building 0 [] (Floor [1] [1])
-                      [ Floor [2,3,4,0] []
-                      , Floor [] [2,3,4,0]
-                      , Floor [] [] ]
+part1 = Building 0 [] ( mkFloor [1] [1])
+                      [ mkFloor [2,3,4,0] []
+                      , mkFloor [] [2,3,4,0]
+                      , mkFloor [] [] ]
 
 part2 :: Building
-part2 = Building 0 [] (Floor [1,6,0] [1,6,0])
-                      [ Floor [2,3,4,5] []
-                      , Floor [] [2,3,4,5]
-                      , Floor [] [] ]
+part2 = Building 0 [] ( mkFloor [1,6,0] [1,6,0])
+                      [ mkFloor [2,3,4,5] []
+                      , mkFloor [] [2,3,4,5]
+                      , mkFloor [] [] ]
