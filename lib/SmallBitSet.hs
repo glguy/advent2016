@@ -1,6 +1,6 @@
 module SmallBitSet where
 
-import Prelude hiding (null, insert, delete)
+import Prelude hiding (null)
 import Data.Foldable (foldl')
 import Data.Bits
 
@@ -38,6 +38,12 @@ delete i (SmallBitSet x) = SmallBitSet (clearBit x i)
 difference :: SmallBitSet -> SmallBitSet -> SmallBitSet
 difference (SmallBitSet x) (SmallBitSet y) =
   SmallBitSet (x .&. complement y)
+
+{-# INLINE (\\) #-}
+(\\) :: SmallBitSet -> SmallBitSet -> SmallBitSet
+(\\) = difference
+
+infix 5 \\
 
 {-# INLINE intersection #-}
 intersection :: SmallBitSet -> SmallBitSet -> SmallBitSet

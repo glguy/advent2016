@@ -1,14 +1,13 @@
-{-# Language TemplateHaskell, BangPatterns #-}
+{-# Language TemplateHaskell #-}
 module Main where
 
-import Control.Monad
-import Data.List
-import Search (bfsOn)
+import Control.Lens
 import Data.Bits
-import Data.Monoid
+import Data.List
+import Data.Maybe
+import Search (bfsOn)
 import SmallBitSet (SmallBitSet)
 import qualified SmallBitSet as SBS
-import Control.Lens
 
 -- Types ---------------------------------------------------------------
 
@@ -18,7 +17,7 @@ data Floor = Floor !SmallBitSet !SmallBitSet -- ^ gen micro
 data Building = Building
   { _bldgSteps    :: !Int
   , _lowerFloors  :: [Floor]
-  , _currentFloor :: Floor
+  , _currentFloor :: {-# UNPACK #-} !Floor
   , _higherFloors :: [Floor]
   }
   deriving Show
@@ -33,20 +32,21 @@ main =
      print (solutionSteps part2)
 
 part1 :: Building
-part1 = Building 0 [] ( mkFloor [1] [1])
-                      [ mkFloor [2,3,4,0] []
-                      , mkFloor [] [2,3,4,0]
+part1 = Building 0 [] ( mkFloor [0] [0])
+                      [ mkFloor [1..4] []
+                      , mkFloor [] [1..4]
                       , mkFloor [] [] ]
 
 part2 :: Building
-part2 = Building 0 [] ( mkFloor [1,6,0] [1,6,0])
-                      [ mkFloor [2,3,4,5] []
-                      , mkFloor [] [2,3,4,5]
+part2 = Building 0 [] ( mkFloor [0..2] [0..2])
+                      [ mkFloor [3..6] []
+                      , mkFloor [] [3..6]
                       , mkFloor [] [] ]
 
 solutionSteps :: Building -> Maybe Int
-solutionSteps =
-  fmap (view bldgSteps) . find isSolved . bfsOn mkRep advanceBuilding
+solutionSteps b =
+  listToMaybe [ b'^.bldgSteps | b' <- bfsOn mkRep advanceBuilding b
+                              , isSolved b' ]
 
 --Floor operations -----------------------------------------------------
 
@@ -58,18 +58,16 @@ isEmptyFloor (Floor x y) = SBS.null x && SBS.null y
 
 isValidFloor :: Floor -> Bool
 isValidFloor (Floor gens mics) =
-  SBS.null gens || SBS.null (SBS.difference mics gens)
+  SBS.null gens || SBS.null (mics SBS.\\ gens)
 
 floorUnion :: Floor -> Floor -> Floor
 floorUnion (Floor x y) (Floor u v) = Floor (SBS.union x u) (SBS.union y v)
 
 floorDifference :: Floor -> Floor -> Floor
-floorDifference (Floor x y) (Floor u v) =
-  Floor (SBS.difference x u) (SBS.difference y v)
+floorDifference (Floor x y) (Floor u v) = Floor (x SBS.\\ u) (y SBS.\\ v)
 
 pickFromFloor :: Floor -> [Floor]
-pickFromFloor (Floor gs ms) =
-  pair ++ twoGens ++ twoMics ++ oneGen ++ oneMic
+pickFromFloor (Floor gs ms) = pair ++ twoGens ++ twoMics ++ oneGen ++ oneMic
   where
     gens = SBS.toList gs
     mics = SBS.toList ms
@@ -88,6 +86,9 @@ pickFromFloor (Floor gs ms) =
 pick2 :: [a] -> [[a]]
 pick2 xs = [ [x,y] | x:ys <- tails xs, y <- ys ]
 
+floorRep :: Floor -> Int
+floorRep (Floor gens mics) = SBS.setRep gens `shiftL`  7 .|.  SBS.setRep mics
+
 -- Building operations -------------------------------------------------
 
 isSolved :: Building -> Bool
@@ -99,7 +100,7 @@ advanceBuilding b =
        , let b1 = b & currentFloor %~ (`floorDifference` subset)
        , isValidFloor (b1^.currentFloor)
        , b2 <- move subset (Lens lowerFloors) (Lens higherFloors) b1
-            <> move subset (Lens higherFloors) (Lens lowerFloors) b1
+            ++ move subset (Lens higherFloors) (Lens lowerFloors) b1
        ]
 
 {-# INLINE move #-}
@@ -121,9 +122,6 @@ move subset (Lens back) (Lens front) b =
 
 -- | Characterize a 4-floor building with up to 7 generator/chip pairs
 mkRep :: Building -> Int
-mkRep (Building _ x y z) = foldl' aux (length x) (x ++ y : z)
+mkRep (Building _ x _ z) = foldl' aux (length x) (x ++ z)
   where
-    aux acc (Floor gens mics) =
-      acc             `shiftL` 14 .|.
-      SBS.setRep gens `shiftL`  7 .|.
-      SBS.setRep mics
+    aux acc fl = acc `shiftL` 14 .|. floorRep fl

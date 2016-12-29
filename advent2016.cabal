@@ -67,7 +67,7 @@ executable Day10
 
 executable Day11
   main-is:             Day11.hs
-  build-depends:       advent2016, base, containers
+  build-depends:       advent2016, base, lens
   default-language:    Haskell2010
 
 executable Day12
