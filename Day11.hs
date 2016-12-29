@@ -96,28 +96,29 @@ isSolved b = null (b^.higherFloors) && all isEmptyFloor (b^.lowerFloors)
 
 advanceBuilding :: Building -> [Building]
 advanceBuilding b =
-  [ b2 | subset <- pickFromFloor (b^.currentFloor)
-       , let b1 = b & currentFloor %~ (`floorDifference` subset)
-       , isValidFloor (b1^.currentFloor)
-       , b2 <- move subset (Lens lowerFloors) (Lens higherFloors) b1
-            ++ move subset (Lens higherFloors) (Lens lowerFloors) b1
+  [ b3 & bldgSteps +~ 1
+       | subset <- pickFromFloor (b^.currentFloor)
+       , b1     <- updateCurrentFloor (`floorDifference` subset) b
+       , b2     <- move (Lens lowerFloors) (Lens higherFloors) b1
+                ++ move (Lens higherFloors) (Lens lowerFloors) b1
+       , b3     <- updateCurrentFloor (floorUnion subset) b2
        ]
+
+updateCurrentFloor :: (Floor -> Floor) -> Building -> [Building]
+updateCurrentFloor f b =
+  [ b' | let (fl',b') = b & currentFloor <%~ f, isValidFloor fl' ]
 
 {-# INLINE move #-}
 move ::
-  Floor ->
   ReifiedLens' Building [Floor] ->
   ReifiedLens' Building [Floor] ->
   Building ->
   [Building]
-move subset (Lens back) (Lens front) b =
-  [ b & bldgSteps    +~ 1
-      & back         %~ cons (b^.currentFloor)
-      & currentFloor .~ here
+move (Lens back) (Lens front) b =
+  [ b & back         %~ cons (b^.currentFloor)
+      & currentFloor .~ x
       & front        .~ xs
-  | next:xs <- [ b^.front ]
-  , let here = floorUnion next subset
-  , isValidFloor here
+  | x:xs <- [ b^.front ]
   ]
 
 -- | Characterize a 4-floor building with up to 7 generator/chip pairs
