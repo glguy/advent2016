@@ -1,7 +1,7 @@
 {-# Language TypeFamilies               #-} -- for PrimMonad instance
 {-# Language GeneralizedNewtypeDeriving #-}
 
-module Main (main, run12, run23, run25, helpme) where
+module Main (main) where
 
 import           Control.Applicative
 import           Control.Exception (throwIO)
@@ -27,10 +27,7 @@ filename23 = "../inputs/input23.txt"
 filename25 = "../inputs/input25.txt"
 
 main :: IO ()
-main =
-  do run12
-     run23
-     run25
+main = do run12; run23; run25
 
 run12 :: IO ()
 run12 =
@@ -63,22 +60,22 @@ run25 =
 
 data Register = PC | A | B | C | D
 
-data Value = ValueInt Int | ValueRegister Register
+data Expr = ExprInt Int | ExprRegister Register
 
 -- | Instructions common to problems 12, 23, and 25
 class BasicOps a where
-  inc :: Register          -> a
-  dec :: Register          -> a
-  cpy :: Value -> Register -> a
-  jnz :: Value -> Value    -> a
+  inc :: Register         -> a
+  dec :: Register         -> a
+  cpy :: Expr -> Register -> a
+  jnz :: Expr -> Expr     -> a
 
 -- | Instructions unique to problem 23
 class OutputOp a where
-  out :: Value -> a
+  out :: Expr -> a
 
 -- | Instructions unique to problem 25
 class ToggleOp a where
-  tgl :: Value -> a
+  tgl :: Expr -> a
 
 ------------------------------------------------------------------------
 -- Registers and a monadic interface to managing them.
@@ -93,9 +90,9 @@ r += d = do x <- reg r; r =: x+d
 r -= d = r += negate d
 infix 2 =:, +=, -=
 
-value :: MonadRegisters m => Value -> m Int
-value (ValueInt      i) = return i
-value (ValueRegister r) = reg r
+value :: MonadRegisters m => Expr -> m Int
+value (ExprInt      i) = return i
+value (ExprRegister r) = reg r
 
 ------------------------------------------------------------------------
 -- Implementation of basic instructions in terms of a register machine
@@ -130,27 +127,25 @@ instance (MonadRegisters m, MonadOutput m) => OutputOp (Eval m) where
 -- Alternative evaluation type that can support toggling
 ------------------------------------------------------------------------
 
+-- | Like 'Eval', but dispatches to the "toggled" instruction when toggle flag is set
 newtype ToggleEval m = ToggleEval { toggleEval :: m () }
-
-helpme :: Value -> Register -> ToggleEval (ToggleT (MachineT IO))
-helpme x r = cpy x r
 
 instance (MonadRegisters m, MonadToggleFlag m) => BasicOps (ToggleEval m) where
   inc x   = toggler (inc x)   (dec x)
   dec x   = toggler (dec x)   (inc x)
   jnz x y = toggler (jnz x y) (cpy x `needReg` y)
-  cpy x y = toggler (cpy x y) (jnz x (ValueRegister y))
+  cpy x y = toggler (cpy x y) (jnz x (ExprRegister y))
 
 instance (MonadRegisters m, MonadToggleFlag m) => ToggleOp (ToggleEval m) where
-  tgl x = toggler (tglPrim x) (inc `needReg` x)
+  tgl x = toggler (tgl x) (inc `needReg` x)
 
 class Monad m => MonadToggleFlag m where
   isToggled :: Int -> m Bool
   togglePC  :: Int -> m ()
 
 -- | Instructions flipped to invalid operations become no-ops
-needReg :: MonadRegisters m => (Register -> Eval m) -> Value -> Eval m
-needReg f (ValueRegister r) = f r
+needReg :: MonadRegisters m => (Register -> Eval m) -> Expr -> Eval m
+needReg f (ExprRegister r) = f r
 needReg _ _                 = Eval (PC += 1)
 
 toggler :: (MonadRegisters m, MonadToggleFlag m) => Eval m -> Eval m -> ToggleEval m
@@ -159,12 +154,12 @@ toggler (Eval normal) (Eval toggled) = ToggleEval $
      if x then toggled else normal
 {-# INLINE toggler #-}
 
-tglPrim :: (MonadRegisters m, MonadToggleFlag m) => Value -> Eval m
-tglPrim x = Eval $
-  do offset <- value x
-     pc     <- reg PC
-     togglePC (pc+offset)
-     PC =: pc+1
+instance (MonadRegisters m, MonadToggleFlag m) => ToggleOp (Eval m) where
+  tgl x = Eval $
+    do offset <- value x
+       pc     <- reg PC
+       togglePC (pc+offset)
+       PC =: pc+1
 
 ------------------------------------------------------------------------
 -- MachineT: An implementation of MonadRegisters
@@ -332,9 +327,9 @@ pRegister :: Parser Register
 pRegister = dispatch [("a",pure A),("b",pure B),("c",pure C),("d",pure D)]
 
 -- | Parse a register or a integer constant
-pValue :: Parser Value
-pValue = ValueRegister          <$> pRegister
-     <|> ValueInt . fromInteger <$> lexeme (L.signed (pure ()) L.decimal)
+pExpr :: Parser Expr
+pExpr = ExprRegister          <$> pRegister
+     <|> ExprInt . fromInteger <$> lexeme (L.signed (pure ()) L.decimal)
 
 ------------------------------------------------------------------------
 -- Individual instruction parsers
@@ -345,17 +340,17 @@ basicInstructions :: BasicOps a => [(String, Parser a)]
 basicInstructions =
   [ ("inc", liftA  inc pRegister)
   , ("dec", liftA  dec pRegister)
-  , ("jnz", liftA2 jnz pValue pValue)
-  , ("cpy", liftA2 cpy pValue pRegister) ]
+  , ("jnz", liftA2 jnz pExpr pExpr)
+  , ("cpy", liftA2 cpy pExpr pRegister) ]
 {-# INLINE basicInstructions #-}
 
 toggleInstruction :: ToggleOp a => (String, Parser a)
-toggleInstruction = ("tgl", liftA tgl pValue)
+toggleInstruction = ("tgl", liftA tgl pExpr)
 {-# INLINE toggleInstruction #-}
 
 -- | Output machine instruction specific to proram 25
 outputInstruction :: OutputOp a => (String, Parser a)
-outputInstruction = ("out", liftA out pValue)
+outputInstruction = ("out", liftA out pExpr)
 {-# INLINE outputInstruction #-}
 
 ------------------------------------------------------------------------
@@ -383,9 +378,9 @@ instance Renderable Char where
 instance Renderable a => Renderable [a] where
   render = renderList
 
-instance Renderable Value where
-  render (ValueRegister r) = render r
-  render (ValueInt      i) = render i
+instance Renderable Expr where
+  render (ExprRegister r) = render r
+  render (ExprInt      i) = render i
 
 instance Renderable Int where
   render = fromShowS . shows
