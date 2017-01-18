@@ -1,7 +1,7 @@
 {-# Language TypeFamilies               #-} -- for PrimMonad instance
 {-# Language GeneralizedNewtypeDeriving #-}
 
-module Main (main) where
+module Main (main, run12, run23, run25, helpme) where
 
 import           Control.Applicative
 import           Control.Exception (throwIO)
@@ -28,6 +28,12 @@ filename25 = "../inputs/input25.txt"
 
 main :: IO ()
 main =
+  do run12
+     run23
+     run25
+
+run12 :: IO ()
+run12 =
   do putStrLn "Problem 12"
      program12 <- loadFile basicInstructions filename12
      let compute12 c = evalMachineT
@@ -35,43 +41,29 @@ main =
      print =<< compute12 0
      print =<< compute12 1
 
-     putStrLn "Problem 23"
+run23 :: IO ()
+run23 =
+  do putStrLn "Problem 23"
      program23 <- loadFile (toggleInstruction:basicInstructions) filename23
      let compute23 a = evalMachineT $ runToggleT (length program23)
-                     $ do A =: a; runUntilEnd (eval . toggleEval <$> program23); reg A
+                     $ do A =: a; runUntilEnd (toggleEval <$> program23); reg A
      print =<< compute23  7
-     -- print =<< compute23 12 -- takes about 2 minutes on my computer
+     print =<< compute23 12 -- takes about 2 minutes on my computer
 
-     putStrLn "Problem 25"
+run25 :: IO ()
+run25 =
+  do putStrLn "Problem 25"
      program25 <- loadFile (outputInstruction:basicInstructions) filename25
      print $ find (isGoodLoop (eval <$> program25)) [1..]
 
+
 ------------------------------------------------------------------------
--- Registers
+-- Instructions
 ------------------------------------------------------------------------
 
 data Register = PC | A | B | C | D
 
-data Registers = Registers
-  { registerPC, registerA, registerB, registerC, registerD :: !Int }
-  deriving (Show, Eq)
-
-initialRegisters :: Registers
-initialRegisters = Registers 0 0 0 0 0
-
-------------------------------------------------------------------------
--- Values that can be registers or constants
-------------------------------------------------------------------------
-
 data Value = ValueInt Int | ValueRegister Register
-
-value :: MonadRegisters m => Value -> m Int
-value (ValueInt      i) = return i
-value (ValueRegister r) = reg r
-
-------------------------------------------------------------------------
--- Classes of operations
-------------------------------------------------------------------------
 
 -- | Instructions common to problems 12, 23, and 25
 class BasicOps a where
@@ -88,6 +80,22 @@ class OutputOp a where
 class ToggleOp a where
   tgl :: Value -> a
 
+------------------------------------------------------------------------
+-- Registers and a monadic interface to managing them.
+------------------------------------------------------------------------
+
+class Monad m => MonadRegisters m where
+  reg  :: Register -> m Int
+  (=:) :: Register -> Int -> m ()
+
+(+=), (-=) :: MonadRegisters m => Register -> Int -> m ()
+r += d = do x <- reg r; r =: x+d
+r -= d = r += negate d
+infix 2 =:, +=, -=
+
+value :: MonadRegisters m => Value -> m Int
+value (ValueInt      i) = return i
+value (ValueRegister r) = reg r
 
 ------------------------------------------------------------------------
 -- Implementation of basic instructions in terms of a register machine
@@ -103,15 +111,10 @@ instance MonadRegisters m => BasicOps (Eval m) where
     do x <- value cond
        o <- if x == 0 then return 1 else value offset
        PC += o
-
-class Monad m => MonadRegisters m where
-  reg  :: Register -> m Int
-  (=:) :: Register -> Int -> m ()
-
-(+=), (-=) :: MonadRegisters m => Register -> Int -> m ()
-r += d = do x <- reg r; r =: x+d
-r -= d = r += negate d
-infix 2 =:, +=, -=
+  {-# INLINE inc #-}
+  {-# INLINE dec #-}
+  {-# INLINE cpy #-}
+  {-# INLINE jnz #-}
 
 ------------------------------------------------------------------------
 -- Implementation of out instruction
@@ -124,16 +127,19 @@ instance (MonadRegisters m, MonadOutput m) => OutputOp (Eval m) where
   out o = Eval $ do recordOutput =<< value o; PC += 1
 
 ------------------------------------------------------------------------
--- Implementation of tgl instruction and custom eval type
+-- Alternative evaluation type that can support toggling
 ------------------------------------------------------------------------
 
-newtype ToggleEval m = ToggleEval { toggleEval :: Eval m }
+newtype ToggleEval m = ToggleEval { toggleEval :: m () }
+
+helpme :: Value -> Register -> ToggleEval (ToggleT (MachineT IO))
+helpme x r = cpy x r
 
 instance (MonadRegisters m, MonadToggleFlag m) => BasicOps (ToggleEval m) where
-  inc x   = toggler' (inc x)   (dec x)
-  dec x   = toggler' (dec x)   (inc x)
-  jnz x y = toggler' (jnz x y) (cpy x `needReg` y)
-  cpy x y = toggler' (cpy x y) (jnz x (ValueRegister y))
+  inc x   = toggler (inc x)   (dec x)
+  dec x   = toggler (dec x)   (inc x)
+  jnz x y = toggler (jnz x y) (cpy x `needReg` y)
+  cpy x y = toggler (cpy x y) (jnz x (ValueRegister y))
 
 instance (MonadRegisters m, MonadToggleFlag m) => ToggleOp (ToggleEval m) where
   tgl x = toggler (tglPrim x) (inc `needReg` x)
@@ -142,40 +148,34 @@ class Monad m => MonadToggleFlag m where
   isToggled :: Int -> m Bool
   togglePC  :: Int -> m ()
 
-nop :: MonadRegisters m => Eval m
-nop = Eval (PC += 1)
-
+-- | Instructions flipped to invalid operations become no-ops
 needReg :: MonadRegisters m => (Register -> Eval m) -> Value -> Eval m
 needReg f (ValueRegister r) = f r
-needReg _ _                 = nop
+needReg _ _                 = Eval (PC += 1)
 
-toggler :: (MonadRegisters m, MonadToggleFlag m) => ToggleEval m -> Eval m -> ToggleEval m
-toggler (ToggleEval (Eval normal)) (Eval toggled) = ToggleEval $ Eval $
+toggler :: (MonadRegisters m, MonadToggleFlag m) => Eval m -> Eval m -> ToggleEval m
+toggler (Eval normal) (Eval toggled) = ToggleEval $
   do x <- isToggled =<< reg PC
      if x then toggled else normal
+{-# INLINE toggler #-}
 
-toggler' :: (MonadRegisters m, MonadToggleFlag m) => Eval m -> Eval m -> ToggleEval m
-toggler' x y = toggler (ToggleEval x) y
-
-tglPrim :: (MonadRegisters m, MonadToggleFlag m) => Value -> ToggleEval m
-tglPrim x = ToggleEval $ Eval $
+tglPrim :: (MonadRegisters m, MonadToggleFlag m) => Value -> Eval m
+tglPrim x = Eval $
   do offset <- value x
      pc     <- reg PC
      togglePC (pc+offset)
      PC =: pc+1
 
 ------------------------------------------------------------------------
--- MachineT: monad transformer implementing MonadRegisters
+-- MachineT: An implementation of MonadRegisters
 ------------------------------------------------------------------------
 
 newtype MachineT m a = Machine (StateT Registers m a)
   deriving (Functor, Applicative, Monad, Alternative, MonadPlus, MonadTrans)
 
-runMachineT :: Registers -> MachineT m a -> m (a, Registers)
-runMachineT r (Machine m) = runStateT m r
-
-evalMachineT :: Monad m => MachineT m a -> m a
-evalMachineT m = fst <$> runMachineT initialRegisters m
+data Registers = Registers
+  { registerPC, registerA, registerB, registerC, registerD :: !Int }
+  deriving (Show, Eq)
 
 instance PrimMonad m => PrimMonad (MachineT m) where
   type PrimState (MachineT m) = PrimState m
@@ -199,9 +199,17 @@ instance Monad m => MonadRegisters (MachineT m) where
   {-# INLINE (=:) #-}
   {-# INLINE reg  #-}
 
+runMachineT :: Registers -> MachineT m a -> m (a, Registers)
+runMachineT r (Machine m) = runStateT m r
+
+evalMachineT :: Monad m => MachineT m a -> m a
+evalMachineT m = fst <$> runMachineT initialRegisters m
+
+initialRegisters :: Registers
+initialRegisters = Registers 0 0 0 0 0
 
 ------------------------------------------------------------------------
--- OutputT: monad transformer implementing MonadOutput verifying 0,1 pattern
+-- OutputT: An implementation of MonadOutput that checks for alternative output
 ------------------------------------------------------------------------
 
 newtype OutputT m a = Output (StateT Int m a)
@@ -233,16 +241,23 @@ instance MonadTrans ToggleT where
 runToggleT :: PrimMonad m => Int {- program size -} -> ToggleT m a -> m a
 runToggleT n (ToggleT m) = runReaderT m =<< MV.replicate n False
 
+inRange :: MV.Unbox a => MV.MVector s a -> Int -> Bool
+inRange v i = i >= 0 && i < MV.length v
+
 instance PrimMonad m => MonadToggleFlag (ToggleT m) where
-  isToggled pc = ToggleT $ ReaderT $ \v ->
-    if pc >= 0 && pc < MV.length v then MV.read v pc else return False
-  togglePC pc = ToggleT $ ReaderT $ \v ->
-    when (pc >= 0 && pc < MV.length v) (MV.modify v not pc)
+  isToggled i = ToggleT $ ReaderT $ \v ->
+    if inRange v i then MV.read v i else return False
+  togglePC i = ToggleT $ ReaderT $ \v ->
+    when (inRange v i) (MV.modify v not i)
+  {-# INLINE isToggled #-}
+  {-# INLINE togglePC #-}
 
 -- | Pass registers through to underlying monad
 instance MonadRegisters m => MonadRegisters (ToggleT m) where
   x =: y = lift (x =: y)
   reg x  = lift (reg x)
+  {-# INLINE (=:) #-}
+  {-# INLINE reg  #-}
 
 ------------------------------------------------------------------------
 -- Functions for executing a whole program
@@ -368,9 +383,6 @@ instance Renderable Char where
 instance Renderable a => Renderable [a] where
   render = renderList
 
-instance Renderable a => Renderable (Vector a) where
-  render = foldMap render
-
 instance Renderable Value where
   render (ValueRegister r) = render r
   render (ValueInt      i) = render i
@@ -396,3 +408,19 @@ instance ToggleOp Render where
 
 instance OutputOp Render where
   out x   = render "out " <> render x <> render '\n'
+
+------------------------------------------------------------------------
+-- Multiple interpretations in parallel
+------------------------------------------------------------------------
+
+instance (BasicOps a, BasicOps b) => BasicOps (a,b) where
+  inc x   = (inc x  , inc x)
+  dec x   = (dec x  , dec x)
+  cpy x y = (cpy x y, cpy x y)
+  jnz x y = (jnz x y, jnz x y)
+
+instance (ToggleOp a, ToggleOp b) => ToggleOp (a,b) where
+  tgl x   = (tgl x, tgl x)
+
+instance (OutputOp a, OutputOp b) => OutputOp (a,b) where
+  out x   = (out x, out x)
