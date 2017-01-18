@@ -8,7 +8,6 @@ import           Control.Monad.Primitive
 import           Control.Monad.Trans.State
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Class
-import           Control.Monad.Trans.Writer
 import           Data.Foldable
 import           Data.Maybe
 import           Data.Monoid
@@ -30,21 +29,20 @@ main =
   do putStrLn "Problem 12"
      program12 <- loadFile basicInstructions filename12
      let compute12 c = evalMachineT
-                     $ do C =: c; runUntilEnd program12; reg A
+                     $ do C =: c; runUntilEnd (eval <$> program12); reg A
      print =<< compute12 0
      print =<< compute12 1
 
      putStrLn "Problem 23"
      program23 <- loadFile (toggleInstruction:basicInstructions) filename23
      let compute23 a = evalMachineT $ runToggleT (length program23)
-                     $ do A =: a; runUntilEnd program23; reg A
+                     $ do A =: a; runUntilEnd (eval . toggleEval <$> program23); reg A
      print =<< compute23  7
      -- print =<< compute23 12 -- takes about 2 minutes on my computer
 
      putStrLn "Problem 25"
      program25 <- loadFile (outputInstruction:basicInstructions) filename25
      print $ find (isGoodLoop program25) [1..]
-
 
 ------------------------------------------------------------------------
 -- Registers
@@ -83,29 +81,30 @@ r -= d = r += negate d
 infix 2 =:, +=, -=
 
 -- | Instructions common to problems 12, 23, and 25
-class Monad m => MonadMachine m where
-  inc :: Register          -> m ()
-  dec :: Register          -> m ()
-  cpy :: Value -> Register -> m ()
-  jnz :: Value -> Value    -> m ()
+class BasicOps a where
+  inc :: Register          -> a
+  dec :: Register          -> a
+  cpy :: Value -> Register -> a
+  jnz :: Value -> Value    -> a
 
 -- | Instructions unique to problem 23
-class Monad m => MonadOutput m where
-  out :: Value -> m ()
+class OutputOp a where
+  out :: Value -> a
 
 -- | Instructions unique to problem 25
-class Monad m => MonadToggle m where
-  tgl :: Value -> m ()
+class ToggleOp a where
+  tgl :: Value -> a
 
+newtype Eval m = Eval { eval :: m () }
 
 ------------------------------------------------------------------------
--- MachineT: monad transformer implementing MonadMachine
+-- MachineT: monad transformer implementing MonadRegisters
 ------------------------------------------------------------------------
 
 newtype MachineT m a = Machine (StateT Registers m a)
   deriving (Functor, Applicative, Monad, Alternative, MonadPlus, MonadTrans)
 
-runMachineT :: Monad m => Registers -> MachineT m a -> m (a, Registers)
+runMachineT :: Registers -> MachineT m a -> m (a, Registers)
 runMachineT r (Machine m) = runStateT m r
 
 evalMachineT :: Monad m => MachineT m a -> m a
@@ -133,14 +132,65 @@ instance Monad m => MonadRegisters (MachineT m) where
   {-# INLINE (=:) #-}
   {-# INLINE reg  #-}
 
-instance Monad m => MonadMachine (MachineT m) where
-  inc r   = do r += 1;               PC += 1
-  dec r   = do r -= 1;               PC += 1
-  cpy i o = do v <- value i; o =: v; PC += 1
-  jnz cond offset =
+instance MonadRegisters m => BasicOps (Eval m) where
+  inc r   = Eval $ do r += 1;               PC += 1
+  dec r   = Eval $ do r -= 1;               PC += 1
+  cpy i o = Eval $ do v <- value i; o =: v; PC += 1
+  jnz cond offset = Eval $
     do x <- value cond
        o <- if x == 0 then return 1 else value offset
        PC += o
+
+------------------------------------------------------------------------
+-- Implementation of out instruction
+------------------------------------------------------------------------
+
+class Monad m => MonadOutput m where
+  recordOutput :: Int -> m ()
+
+instance (MonadRegisters m, MonadOutput m) => OutputOp (Eval m) where
+  out o = Eval $ do recordOutput =<< value o; PC += 1
+
+------------------------------------------------------------------------
+-- Implementation of toggle instruction
+------------------------------------------------------------------------
+
+newtype ToggleEval m = ToggleEval { toggleEval :: Eval m }
+
+instance (MonadRegisters m, MonadToggleFlag m) => BasicOps (ToggleEval m) where
+  inc x   = toggler' (inc x)   (dec x)
+  dec x   = toggler' (dec x)   (inc x)
+  jnz x y = toggler' (jnz x y) (cpy x `needReg` y)
+  cpy x y = toggler' (cpy x y) (jnz x (ValueRegister y))
+
+instance (MonadRegisters m, MonadToggleFlag m) => ToggleOp (ToggleEval m) where
+  tgl x = toggler (tglPrim x) (inc `needReg` x)
+
+class Monad m => MonadToggleFlag m where
+  isToggled :: Int -> m Bool
+  togglePC  :: Int -> m ()
+
+nop :: MonadRegisters m => Eval m
+nop = Eval (PC += 1)
+
+needReg :: MonadRegisters m => (Register -> Eval m) -> Value -> Eval m
+needReg f (ValueRegister r) = f r
+needReg _ _                 = nop
+
+toggler :: (MonadRegisters m, MonadToggleFlag m) => ToggleEval m -> Eval m -> ToggleEval m
+toggler (ToggleEval (Eval normal)) (Eval toggled) = ToggleEval $ Eval $
+  do x <- isToggled =<< reg PC
+     if x then toggled else normal
+
+toggler' :: (MonadRegisters m, MonadToggleFlag m) => Eval m -> Eval m -> ToggleEval m
+toggler' x y = toggler (ToggleEval x) y
+
+tglPrim :: (MonadRegisters m, MonadToggleFlag m) => Value -> ToggleEval m
+tglPrim x = ToggleEval $ Eval $
+  do offset <- value x
+     pc     <- reg PC
+     togglePC (pc+offset)
+     PC =: pc+1
 
 
 ------------------------------------------------------------------------
@@ -158,93 +208,53 @@ instance MonadRegisters m => MonadRegisters (OutputT m) where
   x =: y = lift (x =: y)
   reg x  = lift (reg x)
 
--- | Pass basic instructions through to underlying machine
-instance MonadMachine m => MonadMachine (OutputT m) where
-  inc x   = lift (inc x)
-  dec x   = lift (dec x)
-  jnz x y = lift (jnz x y)
-  cpy x y = lift (cpy x y)
-
--- | Output values checking for correct alternation of zero and one
-instance (MonadRegisters m, MonadPlus m) => MonadOutput (OutputT m) where
-  out o =
-    do x <- value o
-       n <- plusOne
+instance MonadPlus m => MonadOutput (OutputT m) where
+  recordOutput x =
+    do n <- Output $ state $ \n -> let n' = n+1 in n' `seq` (n,n')
        guard (x == if even n then 0 else 1)
-       PC += 1
-
--- | Increment the output counter returning the old value
-plusOne :: Monad m => OutputT m Int
-plusOne = Output $ state $ \n -> let n' = n+1 in n' `seq` (n,n')
 
 ------------------------------------------------------------------------
--- ToggleT: monad transformer implementing MonadToggle
+-- ToggleT: monad transformer implementing MonadToggleFlag
 ------------------------------------------------------------------------
 
-newtype ToggleT m a = Toggle (ReaderT (MV.MVector (PrimState m) Bool) m a)
+newtype ToggleT m a = ToggleT (ReaderT (MV.MVector (PrimState m) Bool) m a)
   deriving (Functor, Applicative, Monad, Alternative, MonadPlus)
 
-instance MonadTrans ToggleT where lift = Toggle . lift
+instance MonadTrans ToggleT where
+  lift = ToggleT . lift
 
-runToggleT :: PrimMonad m => Int -> ToggleT m a -> m a
-runToggleT n (Toggle m) = runReaderT m =<< MV.replicate n False
+instance PrimMonad m => PrimMonad (ToggleT m) where
+  type PrimState (ToggleT m) = PrimState m
+  primitive = lift . primitive
 
-isToggled :: PrimMonad m => Int -> ToggleT m Bool
-isToggled pc = Toggle $ ReaderT $ \v ->
-  if pc >= 0 && pc < MV.length v then MV.read v pc else return False
+runToggleT :: PrimMonad m => Int {- program size -} -> ToggleT m a -> m a
+runToggleT n (ToggleT m) = runReaderT m =<< MV.replicate n False
 
-togglePC :: PrimMonad m => Int -> ToggleT m ()
-togglePC pc = Toggle $ ReaderT $ \v ->
-  when (pc >= 0 && pc < MV.length v) (MV.modify v not pc)
+instance PrimMonad m => MonadToggleFlag (ToggleT m) where
+  isToggled pc = ToggleT $ ReaderT $ \v ->
+    if pc >= 0 && pc < MV.length v then MV.read v pc else return False
+  togglePC pc = ToggleT $ ReaderT $ \v ->
+    when (pc >= 0 && pc < MV.length v) (MV.modify v not pc)
 
-needReg :: MonadRegisters m => (Register -> m ()) -> Value -> m ()
-needReg f (ValueRegister r) = f r
-needReg _ _                 = PC += 1
-
+-- | Pass registers through to underlying monad
 instance MonadRegisters m => MonadRegisters (ToggleT m) where
   x =: y = lift (x =: y)
   reg x  = lift (reg x)
-
-instance (PrimMonad m, MonadRegisters m, MonadMachine m) => MonadMachine (ToggleT m) where
-  inc x   = toggler' (inc x)   (dec x)
-  dec x   = toggler' (dec x)   (inc x)
-  jnz x y = toggler' (jnz x y) (cpy x `needReg` y)
-  cpy x y = toggler' (cpy x y) (jnz x (ValueRegister y))
-
-instance (PrimMonad m, MonadRegisters m, MonadMachine m) => MonadToggle (ToggleT m) where
-  tgl x = toggler (tglPrim x) (inc `needReg` x)
-
-tglPrim :: (PrimMonad m, MonadRegisters m) => Value -> ToggleT m ()
-tglPrim x =
-  do offset <- value x
-     pc     <- reg PC
-     togglePC (pc+offset)
-     PC =: pc+1
-
-toggler' :: (PrimMonad m, MonadRegisters m) => m a -> m a -> ToggleT m a
-toggler' x y = toggler (lift x) y
-
-toggler :: (PrimMonad m, MonadRegisters m) => ToggleT m a -> m a -> ToggleT m a
-toggler normal toggled =
-  do x <- isToggled =<< reg PC
-     if x then lift toggled else normal
-
 
 ------------------------------------------------------------------------
 -- Functions for executing a whole program
 ------------------------------------------------------------------------
 
 -- | Big-step machine semantics. Runs machine until it halts.
-runUntilEnd :: MonadRegisters m => Vector (m a) -> m ()
+runUntilEnd :: MonadRegisters m => Vector (m ()) -> m ()
 runUntilEnd program = go where
   go = do pc <- reg PC
           case program Vector.!? pc of
             Nothing -> return ()
             Just m  -> do m; go
 
-
 -- | Predicate for machines that loop while producing a good output stream.
-isGoodLoop :: Vector (OutputT (MachineT Maybe) ()) -> Int -> Bool
+isGoodLoop :: Vector (Eval (OutputT (MachineT Maybe))) -> Int -> Bool
 isGoodLoop program start = isWorking (go s0 <$> step s0)
   where
     -- initial machine state
@@ -252,7 +262,7 @@ isGoodLoop program start = isWorking (go s0 <$> step s0)
 
     -- small-step machine semantics
     step (outs, regs) =
-      do op                <- program Vector.!? registerPC regs
+      do Eval op           <- program Vector.!? registerPC regs
          ((_,outs'),regs') <- runMachineT regs (runOutputT outs op)
          return (outs', regs')
 
@@ -290,10 +300,10 @@ parseLines parsers = sepEndBy (dispatch parsers) eol <* eof
 -- | Select a parser by selecting via the next alphabetic lexeme
 dispatch :: [(String,Parser a)] -> Parser a
 dispatch xs =
-  do lexeme <- lexeme (some letterChar)
-     case lookup lexeme xs of
+  do name <- lexeme (some letterChar)
+     case lookup name xs of
        Just p  -> p
-       Nothing -> fail ("unexpected '" ++ lexeme ++ "'")
+       Nothing -> fail ("unexpected '" ++ name ++ "'")
 
 -- | Wrap a parser to handle trailing whitespace
 lexeme :: Parser a -> Parser a
@@ -313,7 +323,7 @@ pValue = ValueRegister          <$> pRegister
 ------------------------------------------------------------------------
 
 -- | Basic machine instructions common to all programs
-basicInstructions :: MonadMachine m => [(String, Parser (m ()))]
+basicInstructions :: BasicOps a => [(String, Parser a)]
 basicInstructions =
   [ ("inc", liftA  inc pRegister)
   , ("dec", liftA  dec pRegister)
@@ -321,12 +331,12 @@ basicInstructions =
   , ("cpy", liftA2 cpy pValue pRegister) ]
 {-# INLINE basicInstructions #-}
 
-toggleInstruction :: MonadToggle m => (String, Parser (m ()))
+toggleInstruction :: ToggleOp a => (String, Parser a)
 toggleInstruction = ("tgl", liftA tgl pValue)
 {-# INLINE toggleInstruction #-}
 
 -- | Output machine instruction specific to proram 25
-outputInstruction :: (MonadOutput m, MonadMachine m) => (String, Parser (m ()))
+outputInstruction :: OutputOp a => (String, Parser a)
 outputInstruction = ("out", liftA out pValue)
 {-# INLINE outputInstruction #-}
 
@@ -334,19 +344,19 @@ outputInstruction = ("out", liftA out pValue)
 -- Render
 ------------------------------------------------------------------------
 
-newtype Render a = Render (Writer (Endo String) a)
-  deriving (Functor, Applicative, Monad)
+newtype Render = Render (Endo String)
+  deriving (Monoid)
 
-renderToString :: Render a -> String
-renderToString (Render m) = execWriter m `appEndo` ""
+renderToString :: Render -> String
+renderToString (Render m) = m `appEndo` ""
 
-fromShowS :: ShowS -> Render ()
-fromShowS = Render . tell . Endo
+fromShowS :: ShowS -> Render
+fromShowS = Render . Endo
 
 class Renderable a where
-  render     :: a -> Render ()
-  renderList :: [a] -> Render ()
-  renderList = traverse_ render
+  render     :: a -> Render
+  renderList :: [a] -> Render
+  renderList = foldMap render
 
 instance Renderable Char where
   render     = fromShowS . showChar
@@ -356,7 +366,7 @@ instance Renderable a => Renderable [a] where
   render = renderList
 
 instance Renderable a => Renderable (Vector a) where
-  render = traverse_ render
+  render = foldMap render
 
 instance Renderable Value where
   render (ValueRegister r) = render r
@@ -368,17 +378,18 @@ instance Renderable Int where
 instance Renderable Register where
   render r = render $ case r of PC -> "pc"; A -> "a"; B -> "b"; C -> "c"; D -> "d"
 
+-- Implementations of the instructions ---------------------------------
 
-instance MonadMachine Render where
-  inc x   = do render "inc "; render x; render '\n'
-  dec x   = do render "dec "; render x; render '\n'
-  cpy x y = do render "cpy "; render x;
-               render ' '   ; render y; render '\n'
-  jnz x y = do render "jnz "; render x;
-               render ' '   ; render y; render '\n'
+instance BasicOps Render where
+  inc x   = render "inc " <> render x <> render '\n'
+  dec x   = render "dec " <> render x <> render '\n'
+  cpy x y = render "cpy " <> render x <>
+            render ' '    <> render y <> render '\n'
+  jnz x y = render "jnz " <> render x <>
+            render ' '    <> render y <> render '\n'
 
-instance MonadToggle Render where
-  tgl x   = do render "tgl "; render x; render '\n'
+instance ToggleOp Render where
+  tgl x   = render "tgl " <> render x <> render '\n'
 
-instance MonadOutput Render where
-  out x   = do render "out "; render x; render '\n'
+instance OutputOp Render where
+  out x   = render "out " <> render x <> render '\n'
