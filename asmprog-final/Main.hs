@@ -117,8 +117,12 @@ instance PrimMonad m => PrimMonad (MachineT m) where
 
 instance Monad m => MonadRegisters (MachineT m) where
   reg r = Machine $
-    do Registers pc a b c d <- get
-       return $! case r of PC -> pc; A -> a; B -> b; C -> c; D -> d
+       gets $ case r of
+         PC -> registerPC
+         A  -> registerA
+         B  -> registerB
+         C  -> registerC
+         D  -> registerD
   r =: x = Machine $
        modify' $ \rs -> case r of
          PC -> rs { registerPC = x }
@@ -127,7 +131,7 @@ instance Monad m => MonadRegisters (MachineT m) where
          C  -> rs { registerC  = x }
          D  -> rs { registerD  = x }
   {-# INLINE (=:) #-}
-  {-# INLINE reg #-}
+  {-# INLINE reg  #-}
 
 instance Monad m => MonadMachine (MachineT m) where
   inc r   = do r += 1;               PC += 1
@@ -182,15 +186,16 @@ newtype ToggleT m a = Toggle (ReaderT (MV.MVector (PrimState m) Bool) m a)
 
 instance MonadTrans ToggleT where lift = Toggle . lift
 
-instance PrimMonad m => PrimMonad (ToggleT m) where
-  type PrimState (ToggleT m) = PrimState m
-  primitive = lift . primitive
-
 runToggleT :: PrimMonad m => Int -> ToggleT m a -> m a
 runToggleT n (Toggle m) = runReaderT m =<< MV.replicate n False
 
-toggleVec :: Monad m => ToggleT m (MV.MVector (PrimState m) Bool)
-toggleVec = Toggle ask
+isToggled :: PrimMonad m => Int -> ToggleT m Bool
+isToggled pc = Toggle $ ReaderT $ \v ->
+  if pc >= 0 && pc < MV.length v then MV.read v pc else return False
+
+togglePC :: PrimMonad m => Int -> ToggleT m ()
+togglePC pc = Toggle $ ReaderT $ \v ->
+  when (pc >= 0 && pc < MV.length v) (MV.modify v not pc)
 
 needReg :: MonadRegisters m => (Register -> m ()) -> Value -> m ()
 needReg f (ValueRegister r) = f r
@@ -211,20 +216,17 @@ instance (PrimMonad m, MonadRegisters m, MonadMachine m) => MonadToggle (ToggleT
 
 tglPrim :: (PrimMonad m, MonadRegisters m) => Value -> ToggleT m ()
 tglPrim x =
-  do v      <- toggleVec
-     offset <- value x
+  do offset <- value x
      pc     <- reg PC
-     PC += 1
-     let pc' = pc+offset
-     when (0 <= pc' && pc' < MV.length v) (MV.modify v not pc')
+     togglePC (pc+offset)
+     PC =: pc+1
 
 toggler' :: (PrimMonad m, MonadRegisters m) => m a -> m a -> ToggleT m a
 toggler' x y = toggler (lift x) y
 
 toggler :: (PrimMonad m, MonadRegisters m) => ToggleT m a -> m a -> ToggleT m a
 toggler normal toggled =
-  do v <- toggleVec
-     x <- MV.read v =<< reg PC
+  do x <- isToggled =<< reg PC
      if x then lift toggled else normal
 
 
@@ -335,8 +337,8 @@ outputInstruction = ("out", liftA out pValue)
 newtype Render a = Render (Writer (Endo String) a)
   deriving (Functor, Applicative, Monad)
 
-toShowS :: Render a -> String
-toShowS (Render m) = execWriter m `appEndo` ""
+renderToString :: Render a -> String
+renderToString (Render m) = execWriter m `appEndo` ""
 
 fromShowS :: ShowS -> Render ()
 fromShowS = Render . tell . Endo
@@ -352,6 +354,9 @@ instance Renderable Char where
 
 instance Renderable a => Renderable [a] where
   render = renderList
+
+instance Renderable a => Renderable (Vector a) where
+  render = traverse_ render
 
 instance Renderable Value where
   render (ValueRegister r) = render r
