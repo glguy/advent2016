@@ -9,8 +9,10 @@ import           Control.Monad              (MonadPlus, when, guard)
 import           Control.Monad.Primitive    (PrimMonad(primitive, PrimState))
 import           Control.Monad.Trans.State  (StateT(runStateT), gets, modify', state)
 import           Control.Monad.Trans.Reader (ReaderT(ReaderT,runReaderT))
+import           Control.Monad.Trans.Writer (WriterT, execWriterT, tell)
 import           Control.Monad.Trans.Class  (MonadTrans(lift))
 import           Data.Foldable              (find, fold)
+import           Data.Functor.Identity      (runIdentity)
 import           Data.Maybe                 (fromMaybe)
 import           Data.Semigroup             (Semigroup, Endo(Endo,appEndo), (<>))
 import qualified Data.Text.IO                as Text
@@ -46,13 +48,16 @@ run23 =
      let compute23 a = evalMachineT $ runToggleT (length program23)
                      $ do A =: a; runUntilEnd (toggleEval <$> program23); reg A
      print =<< compute23  7
-     print =<< compute23 12 -- takes about 2 minutes on my computer
+     print =<< compute23 12 -- takes under 2 minutes on my computer
 
 run25 :: IO ()
 run25 =
   do putStrLn "Problem 25"
-     program25 <- loadFile (outputInstruction:basicInstructions) filename25
-     print $ find (isGoodLoop (eval <$> program25)) [1..]
+     (pgm1, pgm2) <- V.unzip <$> loadFile (outputInstruction:basicInstructions) filename25
+     putStrLn "First 50 outputs when A initialized to 1"
+     print $ take 50 $ runIdentity $ evalMachineT $ execOutputListT
+           $ do A =: 1; runUntilEnd (eval <$> pgm1)
+     print $ find (isGoodLoop (eval <$> pgm2)) [1..]
 
 
 ------------------------------------------------------------------------
@@ -200,7 +205,7 @@ instance Monad m => MonadMachine (MachineT m) where
   {-# INLINE reg  #-}
 
 runMachineT :: Registers -> MachineT m a -> m (a, Registers)
-runMachineT r (Machine m) = runStateT m r
+runMachineT r (MachineT m) = runStateT m r
 
 evalMachineT :: Monad m => MachineT m a -> m a
 evalMachineT m = fst <$> runMachineT initialRegisters m
@@ -227,6 +232,26 @@ instance MonadPlus m => MonadOutput (OutputT m) where
   recordOutput x = OutputT $
     do n <- state $ \n -> let n' = n+1 in n' `seq` (n,n')
        guard (x == if even n then 0 else 1)
+
+------------------------------------------------------------------------
+-- OutputListT: An implementation of MonadOutput that gathers outputs in list
+------------------------------------------------------------------------
+
+newtype OutputListT m a = OutputListT (WriterT (Endo [Int]) m a)
+  deriving (Functor, Applicative, Monad, MonadTrans)
+
+execOutputListT :: Monad m => OutputListT m a -> m [Int]
+execOutputListT (OutputListT m) = (`appEndo` []) <$> execWriterT m
+
+instance Monad m => MonadOutput (OutputListT m) where
+  recordOutput x = OutputListT (tell (Endo (x:)))
+
+-- | Pass registers through to underlying monad
+instance MonadMachine m => MonadMachine (OutputListT m) where
+  x =: y = lift (x =: y)
+  reg x  = lift (reg x)
+  {-# INLINE (=:) #-}
+  {-# INLINE reg  #-}
 
 ------------------------------------------------------------------------
 -- ToggleT: monad transformer implementing MonadToggleFlag
