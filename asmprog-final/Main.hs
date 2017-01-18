@@ -1,5 +1,7 @@
-{-# Language TypeFamilies, GeneralizedNewtypeDeriving #-}
-module Main (main, runUntilEnd) where
+{-# Language TypeFamilies               #-} -- for PrimMonad instance
+{-# Language GeneralizedNewtypeDeriving #-}
+
+module Main (main) where
 
 import           Control.Applicative
 import           Control.Exception (throwIO)
@@ -10,7 +12,7 @@ import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Class
 import           Data.Foldable
 import           Data.Maybe
-import           Data.Monoid
+import           Data.Semigroup
 import qualified Data.Text.IO as Text
 import qualified Data.Vector as Vector
 import           Data.Vector (Vector)
@@ -42,7 +44,7 @@ main =
 
      putStrLn "Problem 25"
      program25 <- loadFile (outputInstruction:basicInstructions) filename25
-     print $ find (isGoodLoop program25) [1..]
+     print $ find (isGoodLoop (eval <$> program25)) [1..]
 
 ------------------------------------------------------------------------
 -- Registers
@@ -71,15 +73,6 @@ value (ValueRegister r) = reg r
 -- Classes of operations
 ------------------------------------------------------------------------
 
-class Monad m => MonadRegisters m where
-  reg  :: Register -> m Int
-  (=:) :: Register -> Int -> m ()
-
-(+=), (-=) :: MonadRegisters m => Register -> Int -> m ()
-r += d = do x <- reg r; r =: x+d
-r -= d = r += negate d
-infix 2 =:, +=, -=
-
 -- | Instructions common to problems 12, 23, and 25
 class BasicOps a where
   inc :: Register          -> a
@@ -95,42 +88,12 @@ class OutputOp a where
 class ToggleOp a where
   tgl :: Value -> a
 
+
+------------------------------------------------------------------------
+-- Implementation of basic instructions in terms of a register machine
+------------------------------------------------------------------------
+
 newtype Eval m = Eval { eval :: m () }
-
-------------------------------------------------------------------------
--- MachineT: monad transformer implementing MonadRegisters
-------------------------------------------------------------------------
-
-newtype MachineT m a = Machine (StateT Registers m a)
-  deriving (Functor, Applicative, Monad, Alternative, MonadPlus, MonadTrans)
-
-runMachineT :: Registers -> MachineT m a -> m (a, Registers)
-runMachineT r (Machine m) = runStateT m r
-
-evalMachineT :: Monad m => MachineT m a -> m a
-evalMachineT m = fst <$> runMachineT initialRegisters m
-
-instance PrimMonad m => PrimMonad (MachineT m) where
-  type PrimState (MachineT m) = PrimState m
-  primitive = lift . primitive
-
-instance Monad m => MonadRegisters (MachineT m) where
-  reg r = Machine $
-       gets $ case r of
-         PC -> registerPC
-         A  -> registerA
-         B  -> registerB
-         C  -> registerC
-         D  -> registerD
-  r =: x = Machine $
-       modify' $ \rs -> case r of
-         PC -> rs { registerPC = x }
-         A  -> rs { registerA  = x }
-         B  -> rs { registerB  = x }
-         C  -> rs { registerC  = x }
-         D  -> rs { registerD  = x }
-  {-# INLINE (=:) #-}
-  {-# INLINE reg  #-}
 
 instance MonadRegisters m => BasicOps (Eval m) where
   inc r   = Eval $ do r += 1;               PC += 1
@@ -140,6 +103,15 @@ instance MonadRegisters m => BasicOps (Eval m) where
     do x <- value cond
        o <- if x == 0 then return 1 else value offset
        PC += o
+
+class Monad m => MonadRegisters m where
+  reg  :: Register -> m Int
+  (=:) :: Register -> Int -> m ()
+
+(+=), (-=) :: MonadRegisters m => Register -> Int -> m ()
+r += d = do x <- reg r; r =: x+d
+r -= d = r += negate d
+infix 2 =:, +=, -=
 
 ------------------------------------------------------------------------
 -- Implementation of out instruction
@@ -152,7 +124,7 @@ instance (MonadRegisters m, MonadOutput m) => OutputOp (Eval m) where
   out o = Eval $ do recordOutput =<< value o; PC += 1
 
 ------------------------------------------------------------------------
--- Implementation of toggle instruction
+-- Implementation of tgl instruction and custom eval type
 ------------------------------------------------------------------------
 
 newtype ToggleEval m = ToggleEval { toggleEval :: Eval m }
@@ -192,13 +164,48 @@ tglPrim x = ToggleEval $ Eval $
      togglePC (pc+offset)
      PC =: pc+1
 
+------------------------------------------------------------------------
+-- MachineT: monad transformer implementing MonadRegisters
+------------------------------------------------------------------------
+
+newtype MachineT m a = Machine (StateT Registers m a)
+  deriving (Functor, Applicative, Monad, Alternative, MonadPlus, MonadTrans)
+
+runMachineT :: Registers -> MachineT m a -> m (a, Registers)
+runMachineT r (Machine m) = runStateT m r
+
+evalMachineT :: Monad m => MachineT m a -> m a
+evalMachineT m = fst <$> runMachineT initialRegisters m
+
+instance PrimMonad m => PrimMonad (MachineT m) where
+  type PrimState (MachineT m) = PrimState m
+  primitive = lift . primitive
+
+instance Monad m => MonadRegisters (MachineT m) where
+  reg r = Machine $
+       gets $ case r of
+         PC -> registerPC
+         A  -> registerA
+         B  -> registerB
+         C  -> registerC
+         D  -> registerD
+  r =: x = Machine $
+       modify' $ \rs -> case r of
+         PC -> rs { registerPC = x }
+         A  -> rs { registerA  = x }
+         B  -> rs { registerB  = x }
+         C  -> rs { registerC  = x }
+         D  -> rs { registerD  = x }
+  {-# INLINE (=:) #-}
+  {-# INLINE reg  #-}
+
 
 ------------------------------------------------------------------------
--- OutputT: monad transformer implementing MonadOutput
+-- OutputT: monad transformer implementing MonadOutput verifying 0,1 pattern
 ------------------------------------------------------------------------
 
 newtype OutputT m a = Output (StateT Int m a)
-  deriving (Functor, Applicative, Monad, MonadTrans, Alternative, MonadPlus)
+  deriving (Functor, Applicative, Monad, MonadTrans)
 
 runOutputT :: Int -> OutputT m a -> m (a, Int)
 runOutputT x (Output m) = runStateT m x
@@ -209,8 +216,8 @@ instance MonadRegisters m => MonadRegisters (OutputT m) where
   reg x  = lift (reg x)
 
 instance MonadPlus m => MonadOutput (OutputT m) where
-  recordOutput x =
-    do n <- Output $ state $ \n -> let n' = n+1 in n' `seq` (n,n')
+  recordOutput x = Output $
+    do n <- state $ \n -> let n' = n+1 in n' `seq` (n,n')
        guard (x == if even n then 0 else 1)
 
 ------------------------------------------------------------------------
@@ -222,10 +229,6 @@ newtype ToggleT m a = ToggleT (ReaderT (MV.MVector (PrimState m) Bool) m a)
 
 instance MonadTrans ToggleT where
   lift = ToggleT . lift
-
-instance PrimMonad m => PrimMonad (ToggleT m) where
-  type PrimState (ToggleT m) = PrimState m
-  primitive = lift . primitive
 
 runToggleT :: PrimMonad m => Int {- program size -} -> ToggleT m a -> m a
 runToggleT n (ToggleT m) = runReaderT m =<< MV.replicate n False
@@ -254,7 +257,7 @@ runUntilEnd program = go where
             Just m  -> do m; go
 
 -- | Predicate for machines that loop while producing a good output stream.
-isGoodLoop :: Vector (Eval (OutputT (MachineT Maybe))) -> Int -> Bool
+isGoodLoop :: Vector (OutputT (MachineT Maybe) ()) -> Int -> Bool
 isGoodLoop program start = isWorking (go s0 <$> step s0)
   where
     -- initial machine state
@@ -262,7 +265,7 @@ isGoodLoop program start = isWorking (go s0 <$> step s0)
 
     -- small-step machine semantics
     step (outs, regs) =
-      do Eval op           <- program Vector.!? registerPC regs
+      do op                <- program Vector.!? registerPC regs
          ((_,outs'),regs') <- runMachineT regs (runOutputT outs op)
          return (outs', regs')
 
@@ -345,7 +348,7 @@ outputInstruction = ("out", liftA out pValue)
 ------------------------------------------------------------------------
 
 newtype Render = Render (Endo String)
-  deriving (Monoid)
+  deriving (Monoid, Semigroup)
 
 renderToString :: Render -> String
 renderToString (Render m) = m `appEndo` ""
