@@ -214,7 +214,6 @@ initialRegisters :: Registers
 initialRegisters = Registers 0 0 0 0 0
 
 ------------------------------------------------------------------------
--- OutputT: An implementation of MonadOutput that checks for alternative output
 ------------------------------------------------------------------------
 
 newtype OutputT m a = OutputT (StateT Int m a)
