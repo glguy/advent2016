@@ -12,7 +12,7 @@ import           Control.Monad.Trans.Reader (ReaderT(ReaderT,runReaderT))
 import           Control.Monad.Trans.Writer (WriterT, execWriterT, tell)
 import           Control.Monad.Trans.Class  (MonadTrans(lift))
 import           Data.Foldable              (find, fold)
-import           Data.Functor.Identity      (runIdentity)
+import           Data.Functor.Identity      (Identity,runIdentity)
 import           Data.Maybe                 (fromMaybe)
 import           Data.Semigroup             (Semigroup, Endo(Endo,appEndo), (<>))
 import qualified Data.Text.IO                as Text
@@ -23,6 +23,7 @@ import           Data.Vector.Unboxed.Mutable (Unbox, MVector)
 import qualified Text.Megaparsec             as P
 import qualified Text.Megaparsec.Lexer       as P
 import           Text.Megaparsec.Text       (Parser)
+import           Control.Monad.ST           (stToIO)
 
 filename12, filename23, filename25 :: FilePath
 filename12 = "../inputs/input12.txt"
@@ -36,16 +37,16 @@ run12 :: IO ()
 run12 =
   do putStrLn "Problem 12"
      program12 <- loadFile basicInstructions filename12
-     let compute12 c = evalMachineT
+     let compute12 c = runIdentity $ evalMachineT
                      $ do C =: c; runUntilEnd (eval <$> program12); reg A
-     print =<< compute12 0
-     print =<< compute12 1
+     print (compute12 0)
+     print (compute12 1)
 
 run23 :: IO ()
 run23 =
   do putStrLn "Problem 23"
      program23 <- loadFile (toggleInstruction:basicInstructions) filename23
-     let compute23 a = evalMachineT $ runToggleT (length program23)
+     let compute23 a = stToIO $ evalMachineT $ runToggleT (length program23)
                      $ do A =: a; runUntilEnd (toggleEval <$> program23); reg A
      print =<< compute23  7
      print =<< compute23 12 -- takes under 2 minutes on my computer
@@ -59,14 +60,13 @@ run25 =
            $ do A =: 1; runUntilEnd (eval <$> pgm1)
      print $ find (isGoodLoop (eval <$> pgm2)) [1..]
 
-
 ------------------------------------------------------------------------
 -- Instructions
 ------------------------------------------------------------------------
 
 data Register = PC | A | B | C | D
 
-data Expr = ExprInt Int | ExprRegister Register
+data Expr = ExprInt !Int | ExprRegister !Register
 
 -- | Instructions common to problems 12, 23, and 25
 class BasicOps a where
@@ -214,6 +214,7 @@ initialRegisters :: Registers
 initialRegisters = Registers 0 0 0 0 0
 
 ------------------------------------------------------------------------
+-- OutputT: An implementation of MonadOutput that checks for alternating output
 ------------------------------------------------------------------------
 
 newtype OutputT m a = OutputT (StateT Int m a)
@@ -295,6 +296,7 @@ runUntilEnd program = go where
             Nothing -> return ()
             Just m  -> do m; go
 
+
 -- | Predicate for machines that loop while producing a good output stream.
 isGoodLoop :: Vector (OutputT (MachineT Maybe) ()) -> Int -> Bool
 isGoodLoop program start = isWorking (go s0 <$> step s0)
@@ -367,19 +369,23 @@ pExpr = ExprRegister          <$> pRegister
 -- | Basic machine instructions common to all programs
 basicInstructions :: BasicOps a => [(String, Parser a)]
 basicInstructions =
-  [ ("inc", liftA  inc pRegister      )
-  , ("dec", liftA  dec pRegister      )
-  , ("jnz", liftA2 jnz pExpr pExpr    )
-  , ("cpy", liftA2 cpy pExpr pRegister) ]
+  [ ("inc", strict $ liftA  inc pRegister      )
+  , ("dec", strict $ liftA  dec pRegister      )
+  , ("jnz", strict $ liftA2 jnz pExpr pExpr    )
+  , ("cpy", strict $ liftA2 cpy pExpr pRegister) ]
 {-# INLINE basicInstructions #-}
 
+{-# INLINE strict #-}
+strict :: Monad m => m a -> m a
+strict m = do x <- m; return $! x
+
 toggleInstruction :: ToggleOp a => (String, Parser a)
-toggleInstruction = ("tgl", liftA tgl pExpr)
+toggleInstruction = ("tgl", strict $ liftA tgl pExpr)
 {-# INLINE toggleInstruction #-}
 
 -- | Output machine instruction specific to proram 25
 outputInstruction :: OutputOp a => (String, Parser a)
-outputInstruction = ("out", liftA out pExpr)
+outputInstruction = ("out", strict $ liftA out pExpr)
 {-# INLINE outputInstruction #-}
 
 ------------------------------------------------------------------------
