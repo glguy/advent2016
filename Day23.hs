@@ -51,7 +51,7 @@ execute program0 a =
   evalState mainEntry (Machine zeroRegisters program0)
   where
     mainEntry =
-      do reg (Register 'a') .= a
+      do reg A .= a
          goto 0
 
     step pc o =
@@ -81,5 +81,5 @@ execute program0 a =
       do program <- use machProgram
          case program Vector.!? pc of
            Just o -> step pc o
-           Nothing -> use (reg (Register 'a'))
+           Nothing -> use (reg A)
 

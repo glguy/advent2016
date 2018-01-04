@@ -36,7 +36,7 @@ execute :: Vector Inst -> Int -> Registers
 execute program c = zeroRegisters &~ mainEntry
   where
     mainEntry =
-      do reg (Register 'c') .= c
+      do reg C .= c
          goto 0
 
     step = \case

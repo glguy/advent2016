@@ -46,6 +46,7 @@ duplicate = aux Set.empty
       | Set.member x seen = Just x
       | otherwise         = aux (Set.insert x seen) xs
 
+-- | Compute steps taken by following a list of commands
 toSteps ::
   Vec       {- ^ initial direction  -} ->
   [Command] {- ^ commands           -} ->

@@ -54,7 +54,7 @@ execute :: Vector Inst -> Int -> Bool
 execute program a =
   evalState theMain (Machine zeroRegisters NeedZero mempty)
   where
-    theMain = do reg (Register 'a') .= a
+    theMain = do reg A .= a
                  goto 0
 
     step pc = \case

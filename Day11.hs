@@ -1,5 +1,5 @@
 {-# Language TemplateHaskell #-}
-module Main where
+module Main (main) where
 
 import Control.Lens
 import Data.Bits
@@ -57,8 +57,7 @@ isEmptyFloor :: Floor -> Bool
 isEmptyFloor (Floor x y) = SBS.null x && SBS.null y
 
 isValidFloor :: Floor -> Bool
-isValidFloor (Floor gens mics) =
-  SBS.null gens || SBS.null (mics SBS.\\ gens)
+isValidFloor (Floor gens mics) = SBS.null gens || SBS.null (mics SBS.\\ gens)
 
 floorUnion :: Floor -> Floor -> Floor
 floorUnion (Floor x y) (Floor u v) = Floor (SBS.union x u) (SBS.union y v)
