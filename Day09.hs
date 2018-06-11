@@ -4,6 +4,7 @@ module Main where
 import Common
 import Control.Monad
 import Text.Megaparsec
+import Text.Megaparsec.Char
 
 main :: IO ()
 main =

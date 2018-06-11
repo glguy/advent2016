@@ -6,7 +6,7 @@ import           GridCoord
 import           Data.List
 import qualified Data.Set as Set
 import           Text.Megaparsec
-import           Text.Megaparsec.String
+import           Text.Megaparsec.Char
 
 -- | Vectors used for incremental steps
 data Vec = Vec !Int !Int

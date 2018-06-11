@@ -4,7 +4,9 @@ import           Control.Monad
 import           Crypto.Hash.MD5
 import           Data.List
 import           Search (bfs)
+import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Char8 as B8
+import           Text.Printf
 
 input :: String
 input = "lpvhkcbi"
@@ -36,9 +38,11 @@ nextStates (x,y,path) =
      guard (isValidLocation x' y')
      return (x',y',path++[step])
 
+hexRep :: BS.ByteString -> String
+hexRep bs = printf "%02x" =<< BS.unpack bs
 
 hashmd5 :: String -> String
-hashmd5 str = show (hash (B8.pack str))
+hashmd5 str = hexRep (hash (B8.pack str))
 
 
 directions :: String -> [Char]

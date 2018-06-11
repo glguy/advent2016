@@ -4,7 +4,7 @@ import           Common
 import           Data.Map (Map)
 import qualified Data.Map as Map
 import           Text.Megaparsec
-import           Text.Megaparsec.String
+import           Text.Megaparsec.Char
 
 main :: IO ()
 main =

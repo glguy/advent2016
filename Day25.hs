@@ -12,7 +12,7 @@ import qualified Data.Set as Set
 import           Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import           Text.Megaparsec
-import           Text.Megaparsec.String
+import           Text.Megaparsec.Char
 import           Control.Monad.Trans.State
 
 data Progress = NeedOne | NeedZero

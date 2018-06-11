@@ -6,7 +6,7 @@ import Data.Monoid
 import Data.Foldable
 import Data.List
 import Text.Megaparsec
-import Text.Megaparsec.String
+import Text.Megaparsec.Char
 import qualified Data.Map as Map
 
 data Entry = Entry { roomName :: [String], sectorId :: Int, roomHash :: String }

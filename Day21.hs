@@ -2,7 +2,7 @@ module Main where
 
 import Common
 import Text.Megaparsec
-import Text.Megaparsec.String
+import Text.Megaparsec.Char
 import Data.List
 
 data Scramble

@@ -5,7 +5,7 @@ import Control.Lens
 import Control.Monad.State
 import Common
 import Text.Megaparsec
-import Text.Megaparsec.String
+import Text.Megaparsec.Char
 
 data Registers = Registers { _regA, _regB, _regC, _regD :: {-# UNPACK #-} !Int }
   deriving (Read, Show, Eq, Ord)

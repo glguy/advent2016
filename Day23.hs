@@ -11,7 +11,7 @@ import qualified Data.Map as Map
 import           Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import           Text.Megaparsec hiding (State)
-import           Text.Megaparsec.String
+import           Text.Megaparsec.Char
 
 data Inst
   = Copy Value !Register

@@ -3,9 +3,11 @@ module Main where
 import           Crypto.Hash.MD5
 import qualified Data.IntMap as IntMap
 import           Data.IntMap (IntMap)
+import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Char8 as B
 import           Data.Monoid
 import           System.IO
+import           Text.Printf
 
 main :: IO ()
 main =
@@ -51,10 +53,13 @@ render n seen =
   '\r' : (spinner !! (n`rem`spinnerLen)) : ' ' :
   [ IntMap.findWithDefault '_' key seen | key <- [0 .. passwordLen - 1 ] ]
 
+hexRep :: BS.ByteString -> String
+hexRep bs = printf "%02x" =<< BS.unpack bs
+
 digitStream :: [(Char,Char)]
 digitStream = go (0 :: Int)
   where
     go i =
-      case splitAt 5 (show (hash (input <> B.pack (show i)))) of
+      case splitAt 5 (hexRep (hash (input <> B.pack (show i)))) of
         ("00000",c1:c2:_) -> (c1,c2) : go (i+1)
         _ -> go (i+1)

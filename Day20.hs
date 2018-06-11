@@ -1,15 +1,14 @@
 module Main where
 
-import Common                 (parseLines, readInputFile)
+import Common                 (Parser, parseLines, readInputFile)
 import Data.List              (sort)
-import Text.Megaparsec        (char)
-import Text.Megaparsec.Lexer  (integer)
-import Text.Megaparsec.String (Parser)
+import Text.Megaparsec.Char   (char)
+import Text.Megaparsec.Char.Lexer (decimal)
 
 type Blacklist = [(Integer,Integer)]
 
 parseEntry :: Parser (Integer,Integer)
-parseEntry = (,) <$> integer <* char '-' <*> integer
+parseEntry = (,) <$> decimal <* char '-' <*> decimal
 
 main :: IO ()
 main =

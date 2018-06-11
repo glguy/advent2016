@@ -6,7 +6,7 @@ import Control.Monad
 import GridCoord
 import Search
 import Text.Megaparsec
-import Text.Megaparsec.String
+import Text.Megaparsec.Char
 import Data.Array (Array)
 import qualified Data.Array as Array
 

@@ -4,8 +4,11 @@ module Common where
 import           Control.Monad.State
 import           System.Environment
 import           Text.Megaparsec
-import           Text.Megaparsec.String
-import           Text.Megaparsec.Lexer (integer)
+import           Text.Megaparsec.Char
+import           Text.Megaparsec.Char.Lexer (decimal)
+import           Data.Void
+
+type Parser = Parsec Void String
 
 readInputFile :: Int -> IO String
 readInputFile n =
@@ -31,7 +34,7 @@ parseLines p = parseOrDie (many (p <* eol) <* eof)
 number :: Num a => Parser a
 number =
    char '-' *> (negate <$> number) <|>
-   fromInteger <$> integer
+   fromInteger <$> decimal
 {-# SPECIALIZE number :: Parser Int #-}
 {-# SPECIALIZE number :: Parser Integer #-}
 

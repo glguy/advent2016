@@ -10,7 +10,7 @@ import           Data.Map (Map)
 import qualified Data.Vector as Vector
 import           Data.Vector
 import           Text.Megaparsec
-import           Text.Megaparsec.String
+import           Text.Megaparsec.Char
 
 main :: IO ()
 main =

@@ -7,7 +7,7 @@ import Control.Monad
 import Data.Array.IO
 import Data.Foldable
 import Text.Megaparsec
-import Text.Megaparsec.String
+import Text.Megaparsec.Char
 
 rows, cols :: Int
 rows = 6

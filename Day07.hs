@@ -4,7 +4,7 @@ import Common
 import Control.Monad
 import Data.List
 import Text.Megaparsec
-import Text.Megaparsec.String
+import Text.Megaparsec.Char
 
 main :: IO ()
 main =
