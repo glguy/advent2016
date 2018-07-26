@@ -15,15 +15,18 @@ import           Data.Foldable              (find, fold)
 import           Data.Functor.Identity      (Identity,runIdentity)
 import           Data.Maybe                 (fromMaybe)
 import           Data.Semigroup             (Semigroup, Endo(Endo,appEndo), (<>))
+import           Data.Text                   (Text)
 import qualified Data.Text.IO                as Text
 import qualified Data.Vector                 as V
 import           Data.Vector                (Vector)
 import qualified Data.Vector.Unboxed.Mutable as MV
 import           Data.Vector.Unboxed.Mutable (Unbox, MVector)
 import qualified Text.Megaparsec             as P
-import qualified Text.Megaparsec.Lexer       as P
-import           Text.Megaparsec.Text       (Parser)
+import qualified Text.Megaparsec.Char        as P
+import qualified Text.Megaparsec.Char.Lexer  as P
 import           Control.Monad.ST           (stToIO)
+
+type Parser = P.Parsec (P.ErrorItem Char) Text
 
 filename12, filename23, filename25 :: FilePath
 filename12 = "../inputs/input12.txt"
