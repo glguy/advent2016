@@ -25,7 +25,7 @@ count p xs = length (filter p xs)
 parseOrDie :: Parser a -> String -> a
 parseOrDie p str =
   case parse p str str of
-    Left e   -> error (parseErrorPretty e)
+    Left e   -> error (errorBundlePretty e)
     Right xs -> xs
 
 parseLines :: Parser a -> String -> [a]

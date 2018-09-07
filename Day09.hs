@@ -27,4 +27,4 @@ mkDecode f = parseOrDie (sum <$> many (plain <|> repeated))
     plain = length <$> some (satisfy (/='('))
     repeated =
        do len <- char '(' *> number <* char 'x'
-          f <$> number <* char ')' <*> replicateM len anyChar
+          f <$> number <* char ')' <*> replicateM len anySingle

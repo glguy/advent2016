@@ -25,6 +25,7 @@ import qualified Text.Megaparsec             as P
 import qualified Text.Megaparsec.Char        as P
 import qualified Text.Megaparsec.Char.Lexer  as P
 import           Control.Monad.ST           (stToIO)
+import Debug.Trace
 
 type Parser = P.Parsec (P.ErrorItem Char) Text
 
@@ -34,7 +35,7 @@ filename23 = "../inputs/input23.txt"
 filename25 = "../inputs/input25.txt"
 
 main :: IO ()
-main = do run12; run23; run25
+main = do run25
 
 run12 :: IO ()
 run12 =
