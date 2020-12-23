@@ -19,6 +19,7 @@ import           Data.Text                   (Text)
 import qualified Data.Text.IO                as Text
 import qualified Data.Vector                 as V
 import           Data.Vector                (Vector)
+import           Data.Void                  (Void)
 import qualified Data.Vector.Unboxed.Mutable as MV
 import           Data.Vector.Unboxed.Mutable (Unbox, MVector)
 import qualified Text.Megaparsec             as P
@@ -27,7 +28,7 @@ import qualified Text.Megaparsec.Char.Lexer  as P
 import           Control.Monad.ST           (stToIO)
 import Debug.Trace
 
-type Parser = P.Parsec (P.ErrorItem Char) Text
+type Parser = P.Parsec Void Text
 
 filename12, filename23, filename25 :: FilePath
 filename12 = "../inputs/input12.txt"
