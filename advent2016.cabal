@@ -1,3 +1,4 @@
+cabal-version:       2.4
 name:                advent2016
 version:             0.1.0.0
 license:             ISC
@@ -7,12 +8,18 @@ maintainer:          emertens@galois.com
 copyright:           2016 Eric Mertens
 build-type:          Simple
 extra-source-files:  ChangeLog.md
-cabal-version:       >=1.10
 
 library
   hs-source-dirs:      lib
   exposed-modules:     Common, Search, GridCoord, AsmProg, UnboxFunctions, SmallBitSet
-  build-depends:       base >=4.9 && <4.14, megaparsec >=8.0 && <8.1, containers >=0.5 && <0.7, array >= 0.5 && <0.6, lens >= 4.15 && <4.19, mtl >=2.2 && <2.3, ghc-prim
+  build-depends:
+    base ^>=4.14,
+    megaparsec ^>=9.0,
+    containers >=0.5 && <0.7,
+    array >= 0.5 && <0.6,
+    lens ^>= 5.0,
+    mtl >=2.2 && <2.3,
+    ghc-prim
   default-language:    Haskell2010
 
 executable Day01
@@ -37,7 +44,7 @@ executable Day04
 
 executable Day05
   main-is:             Day05.hs
-  build-depends:       advent2016, base, containers, cryptohash-md5, bytestring >=0.10 && <0.11
+  build-depends:       advent2016, base, containers, cryptohash-md5, bytestring ^>=0.10,
   default-language:    Haskell2010
 
 executable Day06
@@ -82,7 +89,7 @@ executable Day13
 
 executable Day14
   main-is:             Day14.hs
-  build-depends:       base, bytestring >=0.10.8 && <0.11, cryptohash-md5
+  build-depends:       base, bytestring ^>=0.10, cryptohash-md5
   default-language:    Haskell2010
 
 executable Day15
